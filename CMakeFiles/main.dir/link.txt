@@ -1,0 +1,1 @@
+clang++     CMakeFiles/main.dir/Primitives.cpp.o CMakeFiles/main.dir/GraphicsHandler.cpp.o CMakeFiles/main.dir/ExceptionHandler.cpp.o CMakeFiles/main.dir/WindowHandler.cpp.o CMakeFiles/main.dir/main.cpp.o  -o build/main  -lgcc -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi 
