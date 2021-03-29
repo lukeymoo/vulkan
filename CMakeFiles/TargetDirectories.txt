@@ -1,3 +1,0 @@
-/home/luke/Documents/VulkanEngineCP/CMakeFiles/rebuild_cache.dir
-/home/luke/Documents/VulkanEngineCP/CMakeFiles/edit_cache.dir
-/home/luke/Documents/VulkanEngineCP/CMakeFiles/main.dir
