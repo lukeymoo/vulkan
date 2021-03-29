@@ -1,1 +1,6 @@
+.gitignore
+CMakeFiles/
 CMakeCache.txt
+*.cmake
+.vscode/
+
