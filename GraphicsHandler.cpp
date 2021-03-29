@@ -1,87 +1,87 @@
 #include "GraphicsHandler.h"
 
 GraphicsHandler::Exception::Exception(int l, std::string f, std::string description)
-    : ExceptionHandler(l, f, description)
+	: ExceptionHandler(l, f, description)
 {
-    type = "Graphics Handler Exception";
-    errorDescription = description;
-    return;
+	type = "Graphics Handler Exception";
+	errorDescription = description;
+	return;
 }
 
 GraphicsHandler::Exception::~Exception(void)
 {
-    return;
+	return;
 }
 
 GraphicsHandler::GraphicsHandler(Display* dsp, Window* wnd, int w, int h)
 {
-    display = dsp;
-    window = wnd;
-    windowWidth = w;
+	display = dsp;
+	window = wnd;
+	windowWidth = w;
 	windowHeight = h;
 
 	m_PhysicalDevice = nullptr;
-    m_Instance = nullptr;
-    m_Device = nullptr;
-    m_GraphicsQueue = nullptr;
-    m_PresentQueue = nullptr;
-    m_Surface = nullptr;
-    m_Swap = nullptr;
-    m_CommandPool = nullptr;
+	m_Instance = nullptr;
+	m_Device = nullptr;
+	m_GraphicsQueue = nullptr;
+	m_PresentQueue = nullptr;
+	m_Surface = nullptr;
+	m_Swap = nullptr;
+	m_CommandPool = nullptr;
 	m_VertexBuffer = nullptr;
 	m_VertexMemory = nullptr;
-    for(auto& semaphore : m_imageAvailableSemaphore) {
-        semaphore = nullptr;
-    }
-    for(auto& semaphore : m_renderFinishedSemaphore) {
-        semaphore = nullptr;
-    }
-    for(auto& fence : m_inFlightFences) {
-        fence = nullptr;
-    }
-    for(auto& fence : m_imagesInFlight) {
-        fence = nullptr;
-    }
-    for(auto& image : m_SwapImages) {
-        image = nullptr;
-    }
-    for(auto& view : m_SwapViews) {
-        view = nullptr;
-    }
-    for(auto& framebuffer : m_Framebuffers) {
-        framebuffer = nullptr;
-    }
-    for(auto& commandBuffer : m_CommandBuffers) {
-        commandBuffer = nullptr;
-    }
-    m_Pipeline = nullptr;
-    m_PipelineLayout = nullptr;
-    m_RenderPass = nullptr;
+	for(auto& semaphore : m_imageAvailableSemaphore) {
+		semaphore = nullptr;
+	}
+	for(auto& semaphore : m_renderFinishedSemaphore) {
+		semaphore = nullptr;
+	}
+	for(auto& fence : m_inFlightFences) {
+		fence = nullptr;
+	}
+	for(auto& fence : m_imagesInFlight) {
+		fence = nullptr;
+	}
+	for(auto& image : m_SwapImages) {
+		image = nullptr;
+	}
+	for(auto& view : m_SwapViews) {
+		view = nullptr;
+	}
+	for(auto& framebuffer : m_Framebuffers) {
+		framebuffer = nullptr;
+	}
+	for(auto& commandBuffer : m_CommandBuffers) {
+		commandBuffer = nullptr;
+	}
+	m_Pipeline = nullptr;
+	m_PipelineLayout = nullptr;
+	m_RenderPass = nullptr;
 	m_SurfaceDetails = {};
 	m_Debug = nullptr;
 
-    vkCreateDebugUtilsMessengerEXT = nullptr;
+	vkCreateDebugUtilsMessengerEXT = nullptr;
 	vkDestroyDebugUtilsMessengerEXT = nullptr;
 	vkSubmitDebugUtilsMessageEXT = nullptr;
 
-    for(auto& deviceInfo : deviceInfoList) {
-        deviceInfo = {};
-    }
-    for(auto& queueInfo : queueCreateInfos) {
-        queueInfo = {};
-    }
-    return;
+	for(auto& deviceInfo : deviceInfoList) {
+		deviceInfo = {};
+	}
+	for(auto& queueInfo : queueCreateInfos) {
+		queueInfo = {};
+	}
+	return;
 }
 
 GraphicsHandler::~GraphicsHandler()
 {
-    std::cout << "[+] Cleaning up Vulkan resources" << std::endl;
-    // Objects must be destroyed in FILO order
+	std::cout << "[+] Cleaning up Vulkan resources" << std::endl;
+	// Objects must be destroyed in FILO order
 	// Instance created first, upon which other handles are obtained so it is destroyed LAST
-	
+
 	vkDeviceWaitIdle(m_Device);
-    vkQueueWaitIdle(m_GraphicsQueue);
-    vkQueueWaitIdle(m_PresentQueue);
+	vkQueueWaitIdle(m_GraphicsQueue);
+	vkQueueWaitIdle(m_PresentQueue);
 
 	cleanupSwapChain();
 
@@ -93,7 +93,7 @@ GraphicsHandler::~GraphicsHandler()
 	if(m_VertexMemory != VK_NULL_HANDLE) {
 		vkFreeMemory(m_Device, m_VertexMemory, nullptr);
 	}
-	
+
 	// Destroy sync objects
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		vkDestroySemaphore(m_Device, m_imageAvailableSemaphore[i], nullptr);
@@ -118,21 +118,21 @@ GraphicsHandler::~GraphicsHandler()
 		vkDestroyInstance(m_Instance, nullptr);
 	}
 
-    std::cout << "[+] Vulkan cleaned up!" << std::endl;
+	std::cout << "[+] Vulkan cleaned up!" << std::endl;
 	return;
 }
 
 void GraphicsHandler::initGraphics(void)
 {
 	/*
-		Ensure all requested validation layers are supported
-	*/
+	   Ensure all requested validation layers are supported
+	   */
 	if(enableValidationLayers) {
 		std::cout << "[+] Debugging enabled" << std::endl;
 
 		/*
-			Returns false if fail, failList is populated with failed requests
-		*/
+		   Returns false if fail, failList is populated with failed requests
+		   */
 		std::cout << "[+] Checking validation layers" << std::endl;
 		std::string failList;
 		bool validationCheck = checkValidationLayerSupport(&failList);
@@ -144,8 +144,8 @@ void GraphicsHandler::initGraphics(void)
 	}
 
 	/*
-		Ensure system supports requested instance extensions here
-	*/
+	   Ensure system supports requested instance extensions here
+	   */
 	std::cout << "[+] Checking extensions" << std::endl;
 	std::string failList;
 	bool extensionCheck = checkInstanceExtensionSupport(&failList);
@@ -160,32 +160,32 @@ void GraphicsHandler::initGraphics(void)
 	}
 
 	/*
-		creates instance, fetches physical device handle,
-		describes graphics queue creation and creates logical device
-	*/
+	   creates instance, fetches physical device handle,
+	   describes graphics queue creation and creates logical device
+	   */
 	initVulkan();
 
 	return;
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 void GraphicsHandler::initVulkan(void)
 {
-    /*
-		Creates Vulkan instance and if debugging is enabled
-		will load debug utility functions
-	*/
-    std::cout << "[+] Creating instance" << std::endl;
+	/*
+	   Creates Vulkan instance and if debugging is enabled
+	   will load debug utility functions
+	   */
+	std::cout << "[+] Creating instance" << std::endl;
 	createInstance();
 
 	/*
-		Selects an adapter we will create a logical device for
-		in the process it also retrieves the index of graphics queue family
-		and stores as member variable of deviceInfoList[selectedIndex]
-	*/
-    std::cout << "[+] Selecting adapter" << std::endl;
+	   Selects an adapter we will create a logical device for
+	   in the process it also retrieves the index of graphics queue family
+	   and stores as member variable of deviceInfoList[selectedIndex]
+	   */
+	std::cout << "[+] Selecting adapter" << std::endl;
 	if (!selectAdapter()) {
 		G_EXCEPT("Failed to find a compatible device for rendering!");
 	}
@@ -195,17 +195,17 @@ void GraphicsHandler::initVulkan(void)
 	m_PhysicalDevice = deviceInfoList.at(selectedIndex).devHandle;
 
 	/*
-		Creates surface and DESCRIBES the creation of graphics queue and presentation queue
-		If graphics queue and present queue share the same family index, only 1 is specified for creation
+	   Creates surface and DESCRIBES the creation of graphics queue and presentation queue
+	   If graphics queue and present queue share the same family index, only 1 is specified for creation
 
-		Will also populate m_SurfaceDetails to describe the capabilities the surface supports in a swap chain
-	*/
-    std::cout << "[+] Creating Vulkan surface" << std::endl;
+	   Will also populate m_SurfaceDetails to describe the capabilities the surface supports in a swap chain
+	   */
+	std::cout << "[+] Creating Vulkan surface" << std::endl;
 	registerSurface();
 
 
 	// check for DEVICE extensions support
-    std::cout << "[+] Checking device extension support" << std::endl;
+	std::cout << "[+] Checking device extension support" << std::endl;
 	std::string failList;
 	if (!checkDeviceExtensionSupport(&failList)) {
 		std::string e = "The following requested device extensions were not supported!\n";
@@ -213,58 +213,58 @@ void GraphicsHandler::initVulkan(void)
 		G_EXCEPT(e.c_str());
 	}
 
-    std::cout << "[+] Creating logical device and queues" << std::endl;
+	std::cout << "[+] Creating logical device and queues" << std::endl;
 	createLogicalDeviceAndQueues();
 
 	/*
-		Creates swap chain, retreives images and then creates views for all of them
-	*/
-    std::cout << "[+] Creating swapchain" << std::endl;
+	   Creates swap chain, retreives images and then creates views for all of them
+	   */
+	std::cout << "[+] Creating swapchain" << std::endl;
 	createSwapChain();
 
 	/*
-		We've created our swap chain and retrieved the handle to all allocated images
-		We've also created views into all retrieved images and are prepared for the
-		final steps in created our pipeline
-	*/
-    std::cout << "[+] Initializing pipeline" << std::endl;
+	   We've created our swap chain and retrieved the handle to all allocated images
+	   We've also created views into all retrieved images and are prepared for the
+	   final steps in created our pipeline
+	   */
+	std::cout << "[+] Initializing pipeline" << std::endl;
 	createGraphicsPipeline();
 
 	/*
-		Create framebuffers for rendering to
-	*/
-    std::cout << "[+] Obtaining frame buffers" << std::endl;
+	   Create framebuffers for rendering to
+	   */
+	std::cout << "[+] Obtaining frame buffers" << std::endl;
 	createFrameBuffers();
 
 	/*
-		Command pools are the parent memory container from which command buffers are allocated from
+	   Command pools are the parent memory container from which command buffers are allocated from
 
-		This function allocates memory for the graphics queue family
-	*/
-    std::cout << "[+] Allocating for command pool" << std::endl;
+	   This function allocates memory for the graphics queue family
+	   */
+	std::cout << "[+] Allocating for command pool" << std::endl;
 	createCommandPool();
 
 	/*
-		Creates vertex buffer
-		This will be vertex data is loaded for gpu rendering
-	*/
+	   Creates vertex buffer
+	   This will be vertex data is loaded for gpu rendering
+	   */
 	createVertexBuffer();
 
 	/*
-		These are buffers that a specified queue family's commands are recorded in
+	   These are buffers that a specified queue family's commands are recorded in
 
-		This allocates memory from a parent command pool
-	*/
-    std::cout << "[+] Allocating for command buffer" << std::endl;
+	   This allocates memory from a parent command pool
+	   */
+	std::cout << "[+] Allocating for command buffer" << std::endl;
 	createCommandBuffers();
 
 	/*
-		Used to synchronize operation
+	   Used to synchronize operation
 
-		So that commands are not executed when resources are not yet available
-		For ex: pipeline images
-	*/
-    std::cout << "[+] Creating synchronization resources" << std::endl;
+	   So that commands are not executed when resources are not yet available
+	   For ex: pipeline images
+	   */
+	std::cout << "[+] Creating synchronization resources" << std::endl;
 	createSyncObjects();
 
 	// Load vertex buffer with vertices data
@@ -277,8 +277,8 @@ void GraphicsHandler::initVulkan(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createInstance(void)
 {
@@ -297,11 +297,11 @@ void GraphicsHandler::createInstance(void)
 	debuggerSettings.pNext = nullptr;
 	debuggerSettings.flags = 0;
 	debuggerSettings.messageSeverity =	VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-										VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-										VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 	debuggerSettings.messageType =	VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-									VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-									VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	debuggerSettings.pfnUserCallback = debugMessageProcessor;
 	debuggerSettings.pUserData = nullptr;
 
@@ -338,8 +338,8 @@ void GraphicsHandler::createInstance(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 // assigns `points` to all found devices with vulkan support
 // sets `selectedIndex` to be the highest rated device
@@ -371,18 +371,18 @@ bool GraphicsHandler::selectAdapter(void)
 
 	// iterate each device found
 	for (size_t i = 0; i < deviceInfoList.size(); i++) {
-		
+
 		// prep structs
-        memset(&deviceInfoList.at(i).devProperties, 0, sizeof(VkPhysicalDeviceProperties));
+		memset(&deviceInfoList.at(i).devProperties, 0, sizeof(VkPhysicalDeviceProperties));
 		memset(&deviceInfoList.at(i).devFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
 
 		// get infos
 		/*
-			must use `deviceInfoList` vector and `selectedIndex` as m_PhysicalDevice has not been
-			assigned the handle of selected device yet
+		   must use `deviceInfoList` vector and `selectedIndex` as m_PhysicalDevice has not been
+		   assigned the handle of selected device yet
 
-			m_PhysicalDevice can be used after rateDevice() has been successfully called
-		*/
+		   m_PhysicalDevice can be used after rateDevice() has been successfully called
+		   */
 		vkGetPhysicalDeviceProperties(deviceInfoList.at(selectedIndex).devHandle, &deviceInfoList.at(i).devProperties);
 		vkGetPhysicalDeviceFeatures(deviceInfoList.at(selectedIndex).devHandle, &deviceInfoList.at(i).devFeatures);
 
@@ -396,7 +396,7 @@ bool GraphicsHandler::selectAdapter(void)
 
 		// get supported queue families
 		vkGetPhysicalDeviceQueueFamilyProperties(deviceInfoList.at(selectedIndex).devHandle,
-			&deviceInfoList.at(i).queueFamilyCount, nullptr);
+				&deviceInfoList.at(i).queueFamilyCount, nullptr);
 		// ensure this device supports at least 1 queue
 		if (deviceInfoList.at(i).queueFamilyCount == 0) {
 			deviceInfoList.at(i).rating = 0;
@@ -407,7 +407,7 @@ bool GraphicsHandler::selectAdapter(void)
 		deviceInfoList.at(i).queueFamiles.resize(deviceInfoList.at(i).queueFamilyCount);
 		// fetch all the queues and place into our custom struct
 		vkGetPhysicalDeviceQueueFamilyProperties(deviceInfoList.at(selectedIndex).devHandle,
-			&deviceInfoList.at(i).queueFamilyCount, deviceInfoList.at(i).queueFamiles.data());
+				&deviceInfoList.at(i).queueFamilyCount, deviceInfoList.at(i).queueFamiles.data());
 
 
 		// ensure device supports VK_QUEUE_GRAPHICS_BIT
@@ -453,8 +453,8 @@ bool GraphicsHandler::selectAdapter(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 // Creates surface from window system(winapi on windows)
 void GraphicsHandler::registerSurface(void)
@@ -466,8 +466,8 @@ void GraphicsHandler::registerSurface(void)
 	createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	createInfo.pNext = nullptr;
 	createInfo.flags = 0;
-    createInfo.dpy = display;
-    createInfo.window = *window;
+	createInfo.dpy = display;
+	createInfo.window = *window;
 
 	// Create window surface
 	result = vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface);
@@ -488,7 +488,7 @@ void GraphicsHandler::registerSurface(void)
 	// check if the earlier fetched queue family supports presentation
 	VkBool32 hasPresentSupport = false;
 	result = vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice,
-		deviceInfoList.at(selectedIndex).graphicsFamilyIndex, m_Surface, &hasPresentSupport);
+			deviceInfoList.at(selectedIndex).graphicsFamilyIndex, m_Surface, &hasPresentSupport);
 	if (result != VK_SUCCESS) { G_EXCEPT("Failure checking for presentation support!"); }
 
 	if (hasPresentSupport) {
@@ -518,9 +518,9 @@ void GraphicsHandler::registerSurface(void)
 	}
 
 	/*
-		Ensure selected device supports at least 1 present mode
-		and 1 image format for surfaces
-	*/
+	   Ensure selected device supports at least 1 present mode
+	   and 1 image format for surfaces
+	   */
 	m_SurfaceDetails = querySwapChainSupport();
 
 	if (m_SurfaceDetails.formats.empty() || m_SurfaceDetails.presentModes.empty()) {
@@ -531,8 +531,8 @@ void GraphicsHandler::registerSurface(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createLogicalDeviceAndQueues(void)
 {
@@ -576,20 +576,20 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createSwapChain(void)
 {
 	VkResult result;
 
 	/*
-		Choose surface format, present mode and extent
+	   Choose surface format, present mode and extent
 
-		swap extent and format are member variables stored for future use
-		`selectedSwapExtent`
-		`selectedSwapFormat`
-	*/
+	   swap extent and format are member variables stored for future use
+	   `selectedSwapExtent`
+	   `selectedSwapFormat`
+	   */
 	VkPresentModeKHR swapPresentMode{};
 	uint32_t imageCount = 0;
 
@@ -617,12 +617,12 @@ void GraphicsHandler::createSwapChain(void)
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 	/*
-		If presentQueue index and graphicsQueue index are the same we set our swap sharing mode to
-		exclusive as images are handled within' 1 queue
+	   If presentQueue index and graphicsQueue index are the same we set our swap sharing mode to
+	   exclusive as images are handled within' 1 queue
 
-		if they are seperate queues then we must set to swap sharing to concurrent and define which queue indexes will
-		be sharing images here
-	*/
+	   if they are seperate queues then we must set to swap sharing to concurrent and define which queue indexes will
+	   be sharing images here
+	   */
 	if (deviceInfoList.at(selectedIndex).presentFamilyIndex == deviceInfoList.at(selectedIndex).graphicsFamilyIndex) {
 		swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		swapChainCreateInfo.queueFamilyIndexCount = 0;
@@ -696,8 +696,8 @@ void GraphicsHandler::createSwapChain(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createGraphicsPipeline(void)
 {
@@ -715,10 +715,10 @@ void GraphicsHandler::createGraphicsPipeline(void)
 	}
 
 	/*
-		Wrap shader buffers as modules
+	   Wrap shader buffers as modules
 
-		Modules can and should be destroyed after creation of graphics pipeline
-	*/
+	   Modules can and should be destroyed after creation of graphics pipeline
+	   */
 	VkShaderModule vertexModule = createShaderModule(vertexShader);
 	VkShaderModule fragModule = createShaderModule(fragShader);
 
@@ -847,7 +847,7 @@ void GraphicsHandler::createGraphicsPipeline(void)
 	colorBlendAttachmentInfo.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	colorBlendAttachmentInfo.alphaBlendOp = VK_BLEND_OP_ADD;
 	colorBlendAttachmentInfo.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	
+
 
 	// global color blending constants
 	VkPipelineColorBlendStateCreateInfo colorBlendingInfo{};
@@ -913,8 +913,8 @@ void GraphicsHandler::createGraphicsPipeline(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createRenderPass(void)
 {
@@ -932,11 +932,11 @@ void GraphicsHandler::createRenderPass(void)
 	/* Specify behavior of stencil buffer before/after rendering */
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	
+
 	/* 
-		Ignore swap chain image previous layout; After rendering automatically
-		transistion to be ready for presentation
-	*/
+	   Ignore swap chain image previous layout; After rendering automatically
+	   transistion to be ready for presentation
+	   */
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
@@ -985,8 +985,8 @@ void GraphicsHandler::createRenderPass(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createFrameBuffers(void)
 {
@@ -1019,8 +1019,8 @@ void GraphicsHandler::createFrameBuffers(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createCommandPool(void)
 {
@@ -1035,13 +1035,13 @@ void GraphicsHandler::createCommandPool(void)
 
 	result = vkCreateCommandPool(m_Device, &commandPoolInfo, nullptr, &m_CommandPool);
 	if (result != VK_SUCCESS) { G_EXCEPT("Failed to create graphics command pool"); }
-	
+
 	return;
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createVertexBuffer(void)
 {
@@ -1049,13 +1049,13 @@ void GraphicsHandler::createVertexBuffer(void)
 
 	// Helper function that creates the buffer and allocates memory for it
 	createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_VertexBuffer, m_VertexMemory);
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_VertexBuffer, m_VertexMemory);
 	return;
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createCommandBuffers(void)
 {
@@ -1120,8 +1120,8 @@ void GraphicsHandler::createCommandBuffers(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createSyncObjects(void)
 {
@@ -1159,8 +1159,8 @@ void GraphicsHandler::createSyncObjects(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 // Searches for specified layers(Global variable validationLayers)
 // and returns whether they were all available or not
@@ -1173,7 +1173,7 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList)
 	if (result != VK_SUCCESS) {
 		G_EXCEPT("There was an error getting instance layer count!");
 	}
-	
+
 	// Ensure we found layers
 	if (!layerCount) {
 		*failList = "Layer check could not find any available layers on system!";
@@ -1219,8 +1219,8 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 bool GraphicsHandler::checkInstanceExtensionSupport(std::string* failList)
 {
 	uint32_t instanceExtensionCount = 0;
@@ -1276,8 +1276,8 @@ bool GraphicsHandler::checkInstanceExtensionSupport(std::string* failList)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 // check for DEVICE level extensions
 bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList)
@@ -1295,10 +1295,10 @@ bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList)
 	std::vector<VkExtensionProperties> availableDeviceExtensions(deviceExtensionCount);
 	// fetch list of all supported DEVICE extensions
 	result = vkEnumerateDeviceExtensionProperties(
-		deviceInfoList.at(selectedIndex).devHandle,
-		nullptr,
-		&deviceExtensionCount,
-		availableDeviceExtensions.data());
+			deviceInfoList.at(selectedIndex).devHandle,
+			nullptr,
+			&deviceExtensionCount,
+			availableDeviceExtensions.data());
 	if (result != VK_SUCCESS) {
 		G_EXCEPT("There was an error getting device extension list!");
 	}
@@ -1329,8 +1329,8 @@ bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 bool GraphicsHandler::loadDebugUtils(void)
 {
@@ -1355,8 +1355,8 @@ bool GraphicsHandler::loadDebugUtils(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void)
 {
@@ -1395,8 +1395,8 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char>& code)
 {
@@ -1417,13 +1417,13 @@ VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char>& code
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageProcessor(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-	VkDebugUtilsMessageTypeFlagsEXT message_type,
-	const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-	void* user_data)
+		VkDebugUtilsMessageTypeFlagsEXT message_type,
+		const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+		void* user_data)
 {
 	if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 	{
@@ -1434,9 +1434,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageProcessor(VkDebugUtilsMessageSeverity
 	}
 	else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
 		/*std::ostringstream oss;
-		oss << std::endl << "Verbose message : " << callback_data->messageIdNumber << ", " << callback_data->pMessageIdName
-			<< std::endl << callback_data->pMessage << std::endl << std::endl;
-		OutputDebugString(oss.str().c_str());*/
+		  oss << std::endl << "Verbose message : " << callback_data->messageIdNumber << ", " << callback_data->pMessageIdName
+		  << std::endl << callback_data->pMessage << std::endl << std::endl;
+		  OutputDebugString(oss.str().c_str());*/
 	}
 	else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 	{
@@ -1449,19 +1449,19 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageProcessor(VkDebugUtilsMessageSeverity
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 /*
-	Iterates through supported formats found when querying the swap chain
-	Selects VK_FORMAT_B8G8R8A8_SRGB if it exists as it is one of the most common formats for images
-	and non linear sRGB as it is also the most common
-*/
+   Iterates through supported formats found when querying the swap chain
+   Selects VK_FORMAT_B8G8R8A8_SRGB if it exists as it is one of the most common formats for images
+   and non linear sRGB as it is also the most common
+   */
 VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
 {
 	for (const auto& availableFormat : m_SurfaceDetails.formats) {
 		if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
-			availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+				availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 			return availableFormat;
 		}
 	}
@@ -1470,8 +1470,8 @@ VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
 {
@@ -1486,27 +1486,27 @@ VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 /*
-	Set resolution of swap chain images
-	should be equal to render area of window
-*/
+   Set resolution of swap chain images
+   should be equal to render area of window
+   */
 VkExtent2D GraphicsHandler::chooseSwapChainExtent(void)
 {
 	if (m_SurfaceDetails.capabilities.currentExtent.width != UINT32_MAX) {
 		return m_SurfaceDetails.capabilities.currentExtent;
 	}
 	else {
-        Window rw;
-        int rx, ry; // returned x/y
-        uint rwidth, rheight; // returned width/height
-        uint rborder; // returned  border width
-        uint rdepth; // returned bit depth
+		Window rw;
+		int rx, ry; // returned x/y
+		uint rwidth, rheight; // returned width/height
+		uint rborder; // returned  border width
+		uint rdepth; // returned bit depth
 		if(!XGetGeometry(display, *window, &rw, &rx, &ry, &rwidth, &rheight, &rborder, &rdepth)) {
-            G_EXCEPT("[-] Failed to get window geometry!");
-        }
+			G_EXCEPT("[-] Failed to get window geometry!");
+		}
 
 		VkExtent2D actualExtent;
 		actualExtent.width = static_cast<uint32_t>(rwidth);
@@ -1514,21 +1514,21 @@ VkExtent2D GraphicsHandler::chooseSwapChainExtent(void)
 
 		// do some min max clamping
 		actualExtent.width = std::max(
-			m_SurfaceDetails.capabilities.minImageExtent.width,
-			std::min(m_SurfaceDetails.capabilities.maxImageExtent.width, actualExtent.width)
-		);
+				m_SurfaceDetails.capabilities.minImageExtent.width,
+				std::min(m_SurfaceDetails.capabilities.maxImageExtent.width, actualExtent.width)
+				);
 
 		actualExtent.height = std::max(
-			m_SurfaceDetails.capabilities.minImageExtent.height,
-			std::min(m_SurfaceDetails.capabilities.maxImageExtent.height, actualExtent.height)
-		);
+				m_SurfaceDetails.capabilities.minImageExtent.height,
+				std::min(m_SurfaceDetails.capabilities.maxImageExtent.height, actualExtent.height)
+				);
 		return actualExtent;
 	}
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 std::vector<char> GraphicsHandler::readFile(std::string filename)
 {
@@ -1564,8 +1564,8 @@ std::vector<char> GraphicsHandler::readFile(std::string filename)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::cleanupSwapChain(void)
 {
@@ -1574,9 +1574,9 @@ void GraphicsHandler::cleanupSwapChain(void)
 		vkDestroyFramebuffer(m_Device, buffer, nullptr);
 	}
 
-    if(!m_Framebuffers.empty()) {
-        vkFreeCommandBuffers(m_Device, m_CommandPool, static_cast<uint32_t>(m_Framebuffers.size()), m_CommandBuffers.data());
-    }
+	if(!m_Framebuffers.empty()) {
+		vkFreeCommandBuffers(m_Device, m_CommandPool, static_cast<uint32_t>(m_Framebuffers.size()), m_CommandBuffers.data());
+	}
 
 	// Destroy pipeline object
 	if (m_Pipeline != VK_NULL_HANDLE) {
@@ -1603,30 +1603,30 @@ void GraphicsHandler::cleanupSwapChain(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::recreateSwapChain(void)
 {
 	vkDeviceWaitIdle(m_Device);
 
 	/*
-		Ensure resources weren't previously destroyed before
-		attempting to do so again
-	*/
+	   Ensure resources weren't previously destroyed before
+	   attempting to do so again
+	   */
 	if (SHOULD_RENDER) {
 		// free up binded resources for recreation
 		cleanupSwapChain();
 	}
 
 	// Get new details
-    std::cout << "[/] Creating new swap chain" << std::endl;
+	std::cout << "[/] Creating new swap chain" << std::endl;
 	m_SurfaceDetails = querySwapChainSupport();
 
 	if (m_SurfaceDetails.formats.empty() || m_SurfaceDetails.presentModes.empty()) {
 		G_EXCEPT("Selected device does not support any image formats or presentation modes for it's surfaces!");
 	}
-	
+
 	// if any dimensions are 0, skip resource creation
 	if (m_SurfaceDetails.capabilities.currentExtent.width == 0 ||
 			m_SurfaceDetails.capabilities.currentExtent.height == 0) {
@@ -1650,8 +1650,8 @@ void GraphicsHandler::recreateSwapChain(void)
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
@@ -1660,7 +1660,7 @@ uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFl
 
 	for(uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++) {
 		if(typeFilter & (1 << i) &&
-			(deviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+				(deviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
 			return i;
 		}
 	}
@@ -1669,11 +1669,11 @@ uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFl
 }
 
 /*
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   */
 
 void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-	VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+		VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 {
 	VkResult result;
 

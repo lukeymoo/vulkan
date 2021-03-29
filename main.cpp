@@ -15,8 +15,7 @@ int main(int argc, char *argv[])
 		std::exit(-1);
 	}
 	catch (...) {
-		std::cout << "Unhandled Exception" << std::endl
-			<< "Unhandled Exception! No further information available" << std::endl;
+		std::cout << "Unhandled Exception" << std::endl << "Unhandled Exception! No further information available" << std::endl;
 		std::exit(-1);
 	}
 	return 0;
