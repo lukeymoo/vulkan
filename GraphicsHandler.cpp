@@ -2126,6 +2126,27 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
   return;
 }
 
-void GraphicsHandler::updateUniformBuffer(void) {
+void GraphicsHandler::updateUniformBuffer(int bufferIndex) {
+  static auto startTime = std::chrono::high_resolution_clock::now();
+
+  auto currentTime = std::chrono::high_resolution_clock::now();
+  float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+  UniformBufferObject ubo{};
+  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 10.0f);
+
+  // Flip due to legacy opengl matrix inversion
+  // should look into seeing whether this operation is faster on gpu side
+  // or should it remain here as a cpu job
+  ubo.proj[1][1] *= -1;
+
+  // Send the data to the uniform buffer
+  // it was created to be accessible by cpu so just use vkMap
+  void* data;
+  vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(UniformBufferObject), 0, &data);
+  memcpy(data, &ubo, sizeof(UniformBufferObject));
+  vkUnmapMemory(m_Device, m_UniformMemory[bufferIndex]);
   return;
 }

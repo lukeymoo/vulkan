@@ -129,7 +129,7 @@ class GraphicsHandler {
         void createIndexBuffer(void);
         void createUniformBuffer(void);
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory);
-        void updateUniformBuffer(void);
+        void updateUniformBuffer(int bufferIndex);
 
         // Frees binded resources for recreation
         void cleanupSwapChain(void);

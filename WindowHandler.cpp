@@ -123,7 +123,7 @@ void WindowHandler::go(void)
 	}
 
 	// Update uniform buffer before draw
-	updateUniformBuffer();
+	gfx->updateUniformBuffer(imageIndex);
 
 	// If image still use, wait for it
 	if (gfx->m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
