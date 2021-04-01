@@ -122,6 +122,9 @@ void WindowHandler::go(void)
 			break;
 	}
 
+	// Update uniform buffer before draw
+	updateUniformBuffer();
+
 	// If image still use, wait for it
 	if (gfx->m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
 		vkWaitForFences(gfx->m_Device, 1, &gfx->m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);

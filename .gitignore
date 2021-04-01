@@ -4,4 +4,9 @@ CMakeFiles/*
 CMakeCache.txt
 cmake_install.cmake
 .vscode/
-
+GTAGS
+GRTAGS
+GPATH
+compile_commands.json
+.clang_complete
+.vscode/

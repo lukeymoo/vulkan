@@ -22,10 +22,10 @@ set(SOURCES
     WindowHandler.cpp
     main.cpp)
 
-add_compile_options(-Wall -std=c++20 -m64)
+add_compile_options(-Wall -std=c++20 -m64 -O2)
 
 add_executable(main ${HEADERS} ${SOURCES})
 
 target_include_directories(main PUBLIC Headers/)
 
-target_link_libraries(main gcc vulkan dl pthread X11 Xxf86vm Xrandr Xi)
+target_link_libraries(main gcc vulkan dl pthread X11 Xxf86vm Xrandr Xi stdc++fs)
