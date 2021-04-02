@@ -2,7 +2,7 @@
 #include "GraphicsHandler.h"
 
 GraphicsHandler::Exception::Exception(int l, std::string f, std::string description)
-    : ExceptionHandler(l, f, description) {
+  : ExceptionHandler(l, f, description) {
   type = "Graphics Handler Exception";
   errorDescription = description;
   return;
@@ -77,7 +77,7 @@ GraphicsHandler::~GraphicsHandler() {
 
   /*
 
-     Cleanup uniform buffer resources
+    Cleanup uniform buffer resources
 
   */
   // Bindings/layout
@@ -144,7 +144,7 @@ void GraphicsHandler::initGraphics(void) {
     bool validationCheck = checkValidationLayerSupport(&failList);
     if (!validationCheck) {
       std::string e =
-          "The following requested validation layers were not found\n";
+        "The following requested validation layers were not found\n";
       e += failList;
       G_EXCEPT(e.c_str());
     }
@@ -161,7 +161,7 @@ void GraphicsHandler::initGraphics(void) {
   if (!extensionCheck) {
     // if it failed, fetch the list of failed requests and throw
     std::string e =
-        "The following requested instance extensions were not supported!\n";
+      "The following requested instance extensions were not supported!\n";
     e += failList;
     G_EXCEPT(e.c_str());
   }
@@ -216,7 +216,7 @@ void GraphicsHandler::initVulkan(void) {
   std::string failList;
   if (!checkDeviceExtensionSupport(&failList)) {
     std::string e =
-        "The following requested device extensions were not supported!\n";
+      "The following requested device extensions were not supported!\n";
     e += failList;
     G_EXCEPT(e.c_str());
   }
@@ -268,7 +268,7 @@ void GraphicsHandler::initVulkan(void) {
   /*
     Create's staging buffer and loads index data into  it
     uses vulkan transfer function to move into gpu side buffer
-   */
+  */
   createIndexBuffer();
 
   /*
@@ -276,6 +276,12 @@ void GraphicsHandler::initVulkan(void) {
     perform per vertex maths
   */
   createUniformBuffer();
+
+  /*
+   Describes the constraints on allocation of descriptor sets
+   type, number/size etc
+  */
+  createDescriptorPool();
 
   /*
     These are buffers that a specified queue family's commands are recorded in
@@ -314,17 +320,17 @@ void GraphicsHandler::createInstance(void) {
   // configure validation layer debugging messages
   VkDebugUtilsMessengerCreateInfoEXT debuggerSettings{};
   debuggerSettings.sType =
-      VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   debuggerSettings.pNext = nullptr;
   debuggerSettings.flags = 0;
   debuggerSettings.messageSeverity =
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
   debuggerSettings.messageType =
-      VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
   debuggerSettings.pfnUserCallback = debugMessageProcessor;
   debuggerSettings.pUserData = nullptr;
 
@@ -336,12 +342,12 @@ void GraphicsHandler::createInstance(void) {
   createInfo.pApplicationInfo = &appInfo;
   if (enableValidationLayers) {
     createInfo.enabledLayerCount =
-        static_cast<uint32_t>(requestedValidationLayers.size());
+      static_cast<uint32_t>(requestedValidationLayers.size());
 
     createInfo.ppEnabledLayerNames = requestedValidationLayers.data();
 
     createInfo.enabledExtensionCount =
-        static_cast<uint32_t>(requestedInstanceExtensions.size());
+      static_cast<uint32_t>(requestedInstanceExtensions.size());
 
     createInfo.ppEnabledExtensionNames = requestedInstanceExtensions.data();
   } else {
@@ -420,12 +426,12 @@ bool GraphicsHandler::selectAdapter(void) {
       m_PhysicalDevice can be used after rateDevice() has been successfully called
     */
     vkGetPhysicalDeviceProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).devProperties);
+      deviceInfoList.at(selectedIndex).devHandle,
+      &deviceInfoList.at(i).devProperties);
 
     vkGetPhysicalDeviceFeatures(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).devFeatures);
+      deviceInfoList.at(selectedIndex).devHandle,
+      &deviceInfoList.at(i).devFeatures);
 
     // Check if dedicated gpu
     if (deviceInfoList.at(i).devProperties.deviceType ==
@@ -435,13 +441,13 @@ bool GraphicsHandler::selectAdapter(void) {
 
     // add max image dimension to rating
     deviceInfoList.at(i).rating +=
-        deviceInfoList.at(i).devProperties.limits.maxImageDimension2D;
+      deviceInfoList.at(i).devProperties.limits.maxImageDimension2D;
 
     // get supported queue families
     vkGetPhysicalDeviceQueueFamilyProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).queueFamilyCount,
-        nullptr);
+      deviceInfoList.at(selectedIndex).devHandle,
+      &deviceInfoList.at(i).queueFamilyCount,
+      nullptr);
     // ensure this device supports at least 1 queue
     if (deviceInfoList.at(i).queueFamilyCount == 0) {
       deviceInfoList.at(i).rating = 0;
@@ -450,12 +456,12 @@ bool GraphicsHandler::selectAdapter(void) {
 
     // resize queue storage
     deviceInfoList.at(i).queueFamiles.resize(
-        deviceInfoList.at(i).queueFamilyCount);
+      deviceInfoList.at(i).queueFamilyCount);
     // fetch all the queues and place into our custom struct
     vkGetPhysicalDeviceQueueFamilyProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).queueFamilyCount,
-        deviceInfoList.at(i).queueFamiles.data());
+      deviceInfoList.at(selectedIndex).devHandle,
+      &deviceInfoList.at(i).queueFamilyCount,
+      deviceInfoList.at(i).queueFamiles.data());
 
 
     // ensure device supports VK_QUEUE_GRAPHICS_BIT
@@ -528,7 +534,7 @@ void GraphicsHandler::registerSurface(void) {
   graphicsQueueCreateInfo.pNext = nullptr;
   graphicsQueueCreateInfo.flags = 0;
   graphicsQueueCreateInfo.queueFamilyIndex =
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+    deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
   graphicsQueueCreateInfo.queueCount = 1;
   graphicsQueueCreateInfo.pQueuePriorities = &queuePrio;
 
@@ -538,16 +544,16 @@ void GraphicsHandler::registerSurface(void) {
   // check if the earlier fetched queue family supports presentation
   VkBool32 hasPresentSupport = false;
   result = vkGetPhysicalDeviceSurfaceSupportKHR(
-      m_PhysicalDevice,
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
-      m_Surface, &hasPresentSupport);
+    m_PhysicalDevice,
+    deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
+    m_Surface, &hasPresentSupport);
   if (result != VK_SUCCESS) {
     G_EXCEPT("Failure checking for presentation support!");
   }
 
   if (hasPresentSupport) {
     deviceInfoList.at(selectedIndex).presentFamilyIndex =
-        deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
   } else {
     // selected device's graphics queue does not have present support
     // maybe look for another queue
@@ -564,7 +570,7 @@ void GraphicsHandler::registerSurface(void) {
     presentQueueCreateInfo.pNext = nullptr;
     presentQueueCreateInfo.flags = 0;
     presentQueueCreateInfo.queueFamilyIndex =
-        deviceInfoList.at(selectedIndex).presentFamilyIndex;
+      deviceInfoList.at(selectedIndex).presentFamilyIndex;
     presentQueueCreateInfo.queueCount = 1;
     presentQueueCreateInfo.pQueuePriorities = &queuePrio;
 
@@ -600,19 +606,19 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void) {
   VkDeviceCreateInfo logicalDeviceCreateInfo{};
   logicalDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   logicalDeviceCreateInfo.pQueueCreateInfos =
-      queueCreateInfos.data();  // -- pass here
+    queueCreateInfos.data();  // -- pass here
   logicalDeviceCreateInfo.queueCreateInfoCount =
-      static_cast<uint32_t>(queueCreateInfos.size());
+    static_cast<uint32_t>(queueCreateInfos.size());
   logicalDeviceCreateInfo.pEnabledFeatures =
-      &deviceInfoList.at(selectedIndex).devFeatures;
+    &deviceInfoList.at(selectedIndex).devFeatures;
   // device level layers deprecated
   logicalDeviceCreateInfo.enabledLayerCount = 0;
   // device level layers deprecated
   logicalDeviceCreateInfo.ppEnabledLayerNames = nullptr;
   logicalDeviceCreateInfo.enabledExtensionCount =
-      static_cast<uint32_t>(requestedDeviceExtensions.size());
+    static_cast<uint32_t>(requestedDeviceExtensions.size());
   logicalDeviceCreateInfo.ppEnabledExtensionNames =
-      requestedDeviceExtensions.data();
+    requestedDeviceExtensions.data();
 
 
   // Create logical device
@@ -704,15 +710,15 @@ void GraphicsHandler::createSwapChain(void) {
     swapChainCreateInfo.pQueueFamilyIndices = nullptr;
   } else {
     uint32_t queueIndices[] = {
-      deviceInfoList.at(selectedIndex).presentFamilyIndex,
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex
-    };
+    deviceInfoList.at(selectedIndex).presentFamilyIndex,
+    deviceInfoList.at(selectedIndex).graphicsFamilyIndex
+  };
     swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     swapChainCreateInfo.queueFamilyIndexCount = 2;
     swapChainCreateInfo.pQueueFamilyIndices = queueIndices;
   }
   swapChainCreateInfo.preTransform =
-      m_SurfaceDetails.capabilities.currentTransform;
+    m_SurfaceDetails.capabilities.currentTransform;
   swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   swapChainCreateInfo.presentMode = swapPresentMode;
   swapChainCreateInfo.clipped = VK_TRUE;
@@ -811,7 +817,7 @@ void GraphicsHandler::createDescriptorSetLayout(void) {
   return;
 }
 
- /*
+/*
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
@@ -842,7 +848,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // describe vertex shader stage
   VkPipelineShaderStageCreateInfo vertexShaderStageInfo{};
   vertexShaderStageInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   vertexShaderStageInfo.pNext = nullptr;
   vertexShaderStageInfo.flags = 0;
   vertexShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -853,7 +859,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // describe fragment shader stage
   VkPipelineShaderStageCreateInfo fragmentShaderStageInfo{};
   fragmentShaderStageInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   fragmentShaderStageInfo.pNext = nullptr;
   fragmentShaderStageInfo.flags = 0;
   fragmentShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -864,8 +870,8 @@ void GraphicsHandler::createGraphicsPipeline(void) {
 
   // store creation descriptions in array
   VkPipelineShaderStageCreateInfo pipelineStages[] = {
-    vertexShaderStageInfo, fragmentShaderStageInfo
-  };
+  vertexShaderStageInfo, fragmentShaderStageInfo
+};
 
 
   // describe creation of vertex input stage
@@ -874,19 +880,19 @@ void GraphicsHandler::createGraphicsPipeline(void) {
 
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertexInputInfo.pNext = nullptr;
   vertexInputInfo.flags = 0;
   vertexInputInfo.vertexBindingDescriptionCount = 1;
   vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
   vertexInputInfo.vertexAttributeDescriptionCount =
-      static_cast<uint32_t>(attributeDescription.size());
+    static_cast<uint32_t>(attributeDescription.size());
   vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
   // describe the type of geometry vulkan will be drawing
   VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
   inputAssemblyInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
   inputAssemblyInfo.pNext = nullptr;
   inputAssemblyInfo.flags = 0;
   inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -897,9 +903,9 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   viewport.x = 0;
   viewport.y = 0;
   viewport.width =
-      static_cast<float>(selectedSwapExtent.width);
+    static_cast<float>(selectedSwapExtent.width);
   viewport.height =
-      static_cast<float>(selectedSwapExtent.height);
+    static_cast<float>(selectedSwapExtent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
@@ -912,7 +918,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // combine viewport and scissor into a vulkan viewport state
   VkPipelineViewportStateCreateInfo viewportStateInfo{};
   viewportStateInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportStateInfo.pNext = nullptr;
   viewportStateInfo.flags = 0;
   viewportStateInfo.viewportCount = 1;
@@ -941,7 +947,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // configure multisampling
   VkPipelineMultisampleStateCreateInfo multisamplingInfo{};
   multisamplingInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisamplingInfo.pNext = nullptr;
   multisamplingInfo.flags = 0;
   multisamplingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -954,7 +960,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // configure depth/stencil testing
   VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
   depthStencilInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depthStencilInfo.pNext = nullptr;
   depthStencilInfo.flags = 0;
   depthStencilInfo.depthTestEnable = VK_TRUE;
@@ -971,22 +977,22 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   colorBlendAttachmentInfo.blendEnable = VK_TRUE;
   colorBlendAttachmentInfo.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
   colorBlendAttachmentInfo.dstColorBlendFactor =
-      VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   colorBlendAttachmentInfo.colorBlendOp = VK_BLEND_OP_ADD;
   colorBlendAttachmentInfo.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
   colorBlendAttachmentInfo.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
   colorBlendAttachmentInfo.alphaBlendOp = VK_BLEND_OP_ADD;
   colorBlendAttachmentInfo.colorWriteMask =
-      VK_COLOR_COMPONENT_R_BIT |
-      VK_COLOR_COMPONENT_G_BIT |
-      VK_COLOR_COMPONENT_B_BIT |
-      VK_COLOR_COMPONENT_A_BIT;
+    VK_COLOR_COMPONENT_R_BIT |
+    VK_COLOR_COMPONENT_G_BIT |
+    VK_COLOR_COMPONENT_B_BIT |
+    VK_COLOR_COMPONENT_A_BIT;
 
 
   // global color blending constants
   VkPipelineColorBlendStateCreateInfo colorBlendingInfo{};
   colorBlendingInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   colorBlendingInfo.pNext = nullptr;
   colorBlendingInfo.flags = 0;
   colorBlendingInfo.logicOpEnable = VK_FALSE;
@@ -1142,8 +1148,8 @@ void GraphicsHandler::createFrameBuffers(void) {
   // iterate each swap chain image and create frame buffer for its
   for (size_t i = 0; i < m_SwapViews.size(); i++) {
     VkImageView attachments[] = {
-      m_SwapViews[i]
-    };
+    m_SwapViews[i]
+  };
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.pNext = nullptr;
@@ -1180,7 +1186,7 @@ void GraphicsHandler::createCommandPool(void) {
   commandPoolInfo.flags = 0;  // lookup flags for better control
   // configure command pool to store graphics commands
   commandPoolInfo.queueFamilyIndex =
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+    deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
 
   result = vkCreateCommandPool(m_Device,
                                &commandPoolInfo,
@@ -1205,11 +1211,11 @@ void GraphicsHandler::createVertexBuffer(void) {
 
   // Create staging buffer & memory
   createBuffer(
-      bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
- VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      &stagingBuffer,
-      &stagingBufferMemory);
+    bufferSize,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    &stagingBuffer,
+    &stagingBufferMemory);
 
   // Load staging buffer with vertex data
   void* data;
@@ -1219,11 +1225,11 @@ void GraphicsHandler::createVertexBuffer(void) {
 
   // Create gpu local buffer
   createBuffer(
-      bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      &m_VertexBuffer,
-      &m_VertexMemory);
+    bufferSize,
+    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    &m_VertexBuffer,
+    &m_VertexMemory);
 
   // Now copy staging buffer data -> gpu local vertex buffer
   copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
@@ -1262,11 +1268,11 @@ void GraphicsHandler::createIndexBuffer(void) {
 
   // Create the gpu local buffer and copy our staging buffer to it
   createBuffer(
-      bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      &m_IndexBuffer,
-      &m_IndexMemory);
+    bufferSize,
+    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    &m_IndexBuffer,
+    &m_IndexMemory);
   // Now we copy our stage buffer over
   copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
 
@@ -1297,6 +1303,33 @@ void GraphicsHandler::createUniformBuffer(void) {
       &m_UniformMemory[i]);
   }
 
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::createDescriptorPool(void) {
+  VkResult result;
+
+  VkDescriptorPoolSize poolSize{};
+  poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  // We allocate a pool for each frame
+  poolSize.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+
+  VkDescriptorPoolCreateInfo poolInfo{};
+  poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  poolInfo.pNext = nullptr;
+  poolInfo.flags = 0;  // Optional flag for allowing freeing after creation
+  poolInfo.poolSizeCount = 1;
+  poolInfo.pPoolSizes = &poolSize;
+  // maximum number of sets that can be allocated
+  poolInfo.maxSets = static_cast<uint32_t>(m_SwapImages.size());
+
+  // Create the descriptor pool
+  result = vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create descriptor pool"); }
   return;
 }
 
@@ -1361,8 +1394,8 @@ void GraphicsHandler::createCommandBuffers(void) {
                          VK_INDEX_TYPE_UINT16);
     // Bind vertex buffers
     VkBuffer vertexBuffers[] = {
-      m_VertexBuffer
-    };
+    m_VertexBuffer
+  };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
 
@@ -1512,18 +1545,18 @@ bool GraphicsHandler::checkInstanceExtensionSupport(std::string* failList) {
   // ensure we found any extensions
   if (!instanceExtensionCount) {
     *failList =
-        "Extension check could not find any available extensions on system";
+      "Extension check could not find any available extensions on system";
     return false;
   }
 
   // fetch all the supported instances
   std::vector<VkExtensionProperties>
-      availableInstanceExtensions(instanceExtensionCount);
+    availableInstanceExtensions(instanceExtensionCount);
   result =
-      vkEnumerateInstanceExtensionProperties(
-          nullptr,
-          &instanceExtensionCount,
-          availableInstanceExtensions.data());
+    vkEnumerateInstanceExtensionProperties(
+      nullptr,
+      &instanceExtensionCount,
+      availableInstanceExtensions.data());
   if (result != VK_SUCCESS) {
     G_EXCEPT("There was an error getting instance extension list!");
   }
@@ -1568,23 +1601,23 @@ bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList) {
 
   // get total number of supported DEVICE extensions
   result = vkEnumerateDeviceExtensionProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      nullptr,
-      &deviceExtensionCount,
-      nullptr);
+    deviceInfoList.at(selectedIndex).devHandle,
+    nullptr,
+    &deviceExtensionCount,
+    nullptr);
   if (result != VK_SUCCESS) {
     G_EXCEPT("There was an error getting count of device extensions!");
   }
 
   std::vector<VkExtensionProperties>
-      availableDeviceExtensions(deviceExtensionCount);
+    availableDeviceExtensions(deviceExtensionCount);
 
   // fetch list of all supported DEVICE extensions
   result = vkEnumerateDeviceExtensionProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      nullptr,
-      &deviceExtensionCount,
-      availableDeviceExtensions.data());
+    deviceInfoList.at(selectedIndex).devHandle,
+    nullptr,
+    &deviceExtensionCount,
+    availableDeviceExtensions.data());
   if (result != VK_SUCCESS) {
     G_EXCEPT("There was an error getting device extension list!");
   }
@@ -1624,22 +1657,22 @@ bool GraphicsHandler::loadDebugUtils(void) {
   temp_fp = vkGetInstanceProcAddr(m_Instance, "vkCreateDebugUtilsMessengerEXT");
   if (!temp_fp) { G_EXCEPT("Failure loading vkCreateDebugUtilsMessengerEXT"); }
   vkCreateDebugUtilsMessengerEXT =
-      reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(temp_fp);
+    reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(temp_fp);
 
   // load vkDestroyDebugUtilsMessengerEXT
   temp_fp =
-      vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
+    vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
   if (!temp_fp) { G_EXCEPT("Failure loading vkDestroyDebugUtilsMessengerEXT"); }
 
   vkDestroyDebugUtilsMessengerEXT =
-      reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(temp_fp);
+    reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(temp_fp);
 
   // load vkSubmitDebugUtilsMessageEXT
   temp_fp = vkGetInstanceProcAddr(m_Instance, "vkSubmitDebugUtilsMessageEXT");
   if (!temp_fp) { G_EXCEPT("Failure loading vkSubmitDebugUtilsMessageEXT"); }
 
   vkSubmitDebugUtilsMessageEXT =
-      reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(temp_fp);
+    reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(temp_fp);
 
   return true;
 }
@@ -1653,9 +1686,9 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
   VkResult result;
 
   result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &details.capabilities);
+    m_PhysicalDevice,
+    m_Surface,
+    &details.capabilities);
   if (result != VK_SUCCESS) {
     G_EXCEPT("There was an error getting surface swap chain capabilities!");
   }
@@ -1663,10 +1696,10 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
   // get supported formats
   uint32_t formatCount = 0;
   result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &formatCount,
-      nullptr);
+    m_PhysicalDevice,
+    m_Surface,
+    &formatCount,
+    nullptr);
   if (result != VK_SUCCESS) {
     G_EXCEPT("Error finding supported formats for surface!");
   }
@@ -1679,20 +1712,20 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
   // get list of supported surface formats
   details.formats.resize(formatCount);
   result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &formatCount,
-      details.formats.data());
+    m_PhysicalDevice,
+    m_Surface,
+    &formatCount,
+    details.formats.data());
   if (result != VK_SUCCESS) {
     G_EXCEPT("There was an error getting supported formats list!");
   }
 
   uint32_t presentModeCount = 0;
   result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &presentModeCount,
-      nullptr);
+    m_PhysicalDevice,
+    m_Surface,
+    &presentModeCount,
+    nullptr);
   if (result != VK_SUCCESS) {
     G_EXCEPT("Error getting supported present mode count!");
   }
@@ -1705,10 +1738,10 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
   // get list of surface present modes
   details.presentModes.resize(presentModeCount);
   result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &presentModeCount,
-      details.presentModes.data());
+    m_PhysicalDevice,
+    m_Surface,
+    &presentModeCount,
+    details.presentModes.data());
   if (result != VK_SUCCESS) {
     G_EXCEPT("Error getting supported surface presentation modes!");
   }
@@ -1745,10 +1778,10 @@ VKAPI_ATTR
 VkBool32
 VKAPI_CALL
 debugMessageProcessor(
-    VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-    __attribute__((unused))VkDebugUtilsMessageTypeFlagsEXT message_type,
-    const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-    __attribute__((unused))void* user_data) {
+  VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+  __attribute__((unused))VkDebugUtilsMessageTypeFlagsEXT message_type,
+  const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+  __attribute__((unused))void* user_data) {
   if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
     std::ostringstream oss;
     oss << std::endl << "Warning: " << callback_data->messageIdNumber
@@ -1837,15 +1870,15 @@ VkExtent2D GraphicsHandler::chooseSwapChainExtent(void) {
 
     // do some min max clamping
     actualExtent.width = std::max(
-        m_SurfaceDetails.capabilities.minImageExtent.width,
-        std::min(
-            m_SurfaceDetails.capabilities.maxImageExtent.width,
-            actualExtent.width));
+      m_SurfaceDetails.capabilities.minImageExtent.width,
+      std::min(
+        m_SurfaceDetails.capabilities.maxImageExtent.width,
+        actualExtent.width));
 
     actualExtent.height = std::max(
-        m_SurfaceDetails.capabilities.minImageExtent.height,
-        std::min(m_SurfaceDetails.capabilities.maxImageExtent.height,
-                 actualExtent.height));
+      m_SurfaceDetails.capabilities.minImageExtent.height,
+      std::min(m_SurfaceDetails.capabilities.maxImageExtent.height,
+               actualExtent.height));
     return actualExtent;
   }
 }
@@ -1917,12 +1950,18 @@ void GraphicsHandler::cleanupSwapChain(void) {
   }
   // Destroy and free memory for uniform buffers
   if(!m_UniformBuffers.empty()) {
+    // Buffers
     for(const auto& buffer : m_UniformBuffers) {
       vkDestroyBuffer(m_Device, buffer, nullptr);
     }
+    // Memory allocations
     for(const auto& memory : m_UniformMemory) {
       vkFreeMemory(m_Device, memory, nullptr);
     }
+  }
+  // Free descriptor pool
+  if(m_DescriptorPool != VK_NULL_HANDLE) {
+    vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
   }
   // ensure we destroy all views to swap chain images
   if (!m_SwapViews.empty()) {
@@ -1978,6 +2017,8 @@ void GraphicsHandler::recreateSwapChain(void) {
   createFrameBuffers();
 
   createUniformBuffer();
+
+  createDescriptorPool();
 
   createCommandBuffers();
   std::cout << "[+] Done!" << std::endl;
@@ -2038,7 +2079,7 @@ void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
   allocInfo.pNext = nullptr;
   allocInfo.allocationSize = memRequirements.size;
   allocInfo.memoryTypeIndex =
-      findMemoryType(memRequirements.memoryTypeBits, properties);
+    findMemoryType(memRequirements.memoryTypeBits, properties);
 
   // Allocate the memory
   result = vkAllocateMemory(m_Device, &allocInfo, nullptr, bufferMemory);
@@ -2125,6 +2166,10 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
 
   return;
 }
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
 
 void GraphicsHandler::updateUniformBuffer(int bufferIndex) {
   static auto startTime = std::chrono::high_resolution_clock::now();
