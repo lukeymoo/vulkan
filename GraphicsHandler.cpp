@@ -135,7 +135,7 @@ GraphicsHandler::~GraphicsHandler() {
     vkDestroyInstance(m_Instance, nullptr);
   }
 
-  std::cout << "[+] Vulkan cleaned up!" << std::endl;
+  std::cout << "\t[+] Vulkan cleaned up!" << std::endl;
   return;
 }
 
@@ -144,12 +144,12 @@ void GraphicsHandler::initGraphics(void) {
     Ensure all requested validation layers are supported
   */
   if (enableValidationLayers) {
-    std::cout << "[+] Debugging enabled" << std::endl;
+    std::cout << "[!] Debugging enabled" << std::endl;
 
     /*
       Returns false if fail, failList is populated with failed requests
     */
-    std::cout << "[+] Checking validation layers" << std::endl;
+    std::cout << "\t[+] Checking for validation layers" << std::endl;
     std::string failList;
     bool validationCheck = checkValidationLayerSupport(&failList);
     if (!validationCheck) {
@@ -163,7 +163,7 @@ void GraphicsHandler::initGraphics(void) {
   /*
     Ensure system supports requested instance extensions here
   */
-  std::cout << "[+] Checking extensions" << std::endl;
+  std::cout << "[+] Checking instance level extension support" << std::endl;
   std::string failList;
   bool extensionCheck = checkInstanceExtensionSupport(&failList);
 
@@ -173,6 +173,7 @@ void GraphicsHandler::initGraphics(void) {
     std::string e =
       "The following requested instance extensions were not supported!\n";
     e += failList;
+    e += "\nThis can sometimes mean that Vulkan is not supported by your drivers\n";
     G_EXCEPT(e.c_str());
   }
 
@@ -222,7 +223,7 @@ void GraphicsHandler::initVulkan(void) {
 
 
   // check for DEVICE extensions support
-  std::cout << "[+] Checking device extension support" << std::endl;
+  std::cout << "[+] Checking for device level extension support" << std::endl;
   std::string failList;
   if (!checkDeviceExtensionSupport(&failList)) {
     std::string e =
