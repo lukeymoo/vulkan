@@ -2401,6 +2401,8 @@ void GraphicsHandler::transitionImageLayout(VkImage image,
                                             VkImageLayout newLayout) {
   VkCommandBuffer commandBuffer = beginSingleCommands();
 
+
+
   endSingleCommands(commandBuffer);
   return;
 }
