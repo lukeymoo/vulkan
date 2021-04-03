@@ -1,5 +1,8 @@
 // Copyright 2021 - not a real copyright, cpplint was annoying me
 #include "GraphicsHandler.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 
 GraphicsHandler::Exception::Exception(int l, std::string f, std::string description)
   : ExceptionHandler(l, f, description) {
@@ -80,6 +83,13 @@ GraphicsHandler::~GraphicsHandler() {
     Cleanup uniform buffer resources
 
   */
+  // Cleanup loaded textures
+  if(m_TextureImage != VK_NULL_HANDLE) {
+    vkDestroyImage(m_Device, m_TextureImage, nullptr);
+  }
+  if(m_TextureMemory != VK_NULL_HANDLE) {
+    vkFreeMemory(m_Device, m_TextureMemory, nullptr);
+  }
   // Bindings/layout
   if(m_DescriptorLayout != VK_NULL_HANDLE) {
     vkDestroyDescriptorSetLayout(m_Device, m_DescriptorLayout, nullptr);
@@ -260,9 +270,15 @@ void GraphicsHandler::initVulkan(void) {
   createCommandPool();
 
   /*
+   Creates image for loading/storing of a PNG/JPEG image for use in rendering
+  */
+  std::cout << "[+] Loading images" << std::endl;
+
+  /*
     Creates staging buffer and loads vertex data into it
     then uses vulkan transfer functions to move that data into a gpu local buffer
   */
+  std::cout << "[+] Loading model and transformation data" << std::endl;
   createVertexBuffer();
 
   /*
@@ -282,6 +298,11 @@ void GraphicsHandler::initVulkan(void) {
    type, number/size etc
   */
   createDescriptorPool();
+
+  /*
+    Allocates descriptor sets from the preallocated pool
+  */
+  createDescriptorSets();
 
   /*
     These are buffers that a specified queue family's commands are recorded in
@@ -937,7 +958,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // wireframe vs fill
   rasterInfo.polygonMode = VK_POLYGON_MODE_FILL;
   rasterInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterInfo.depthBiasEnable = VK_FALSE;
   rasterInfo.depthBiasConstantFactor = 0.0f;
   rasterInfo.depthBiasClamp = 0.0f;
@@ -1177,6 +1198,56 @@ void GraphicsHandler::createFrameBuffers(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
+void GraphicsHandler::createTextureImage(void) {
+  int textureWidth;
+  int textureHeight;
+  int textureChannels;
+
+  // Load our image
+  stbi_uc* pixels = stbi_load("textures/statue.jppg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+
+  // Create a buffer
+  VkDeviceSize imageSize = textureWidth * textureHeight * 4;
+
+  if(!pixels) {
+    G_EXCEPT("Failed to load textures!");
+  }
+
+  // Create staging buffer to temporarily store our texture
+  VkBuffer stagingBuffer;
+  VkDeviceMemory stagingMemory;
+
+  createBuffer(imageSize,
+               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               &stagingBuffer,
+               &stagingMemory);
+
+  // Move our pixel data into the staging buffer
+  void* data;
+  vkMapMemory(m_Device, stagingMemory, 0, imageSize, 0, &data);
+  memcpy(data, pixels, static_cast<size_t>(imageSize));
+  vkUnmapMemory(m_Device, stagingMemory);
+
+  // Don't forget to free memory used by the loader
+  stbi_image_free(pixels);
+
+  createImage(
+    textureWidth,
+    textureHeight,
+    VK_FORMAT_R8G8B8A8_SRGB,
+    VK_IMAGE_TILING_OPTIMAL,
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    m_TextureImage,
+    m_TextureMemory);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
 void GraphicsHandler::createCommandPool(void) {
   VkResult result;
 
@@ -1312,7 +1383,7 @@ void GraphicsHandler::createUniformBuffer(void) {
 
 void GraphicsHandler::createDescriptorPool(void) {
   VkResult result;
-
+  
   VkDescriptorPoolSize poolSize{};
   poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   // We allocate a pool for each frame
@@ -1330,6 +1401,59 @@ void GraphicsHandler::createDescriptorPool(void) {
   // Create the descriptor pool
   result = vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool);
   if(result != VK_SUCCESS) { G_EXCEPT("Failed to create descriptor pool"); }
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::createDescriptorSets(void) {
+  VkResult result;
+
+  std::vector<VkDescriptorSetLayout>
+    layouts(m_SwapImages.size(), m_DescriptorLayout);
+
+  // Describe the allocation of descriptor sets
+  VkDescriptorSetAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  allocInfo.pNext = nullptr;
+  allocInfo.descriptorPool = m_DescriptorPool;
+  allocInfo.descriptorSetCount = static_cast<uint32_t>(m_SwapImages.size());
+  allocInfo.pSetLayouts = layouts.data();
+
+  // Resize our container for the sets
+  m_DescriptorSets.resize(m_SwapImages.size());
+  // Allocate sets
+  result = vkAllocateDescriptorSets(m_Device, &allocInfo, m_DescriptorSets.data());
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to allocate descriptor sets"); }
+
+  // Populate the descriptor sets
+  // This is where the uniform buffers are binded to the descriptor sets
+  for(size_t i = 0; i < m_SwapImages.size(); i++) {
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = m_UniformBuffers[i];
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(UniformBufferObject);
+
+    VkWriteDescriptorSet writeInfo{};
+    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeInfo.dstSet = m_DescriptorSets[i];
+    writeInfo.dstBinding = 0;
+    writeInfo.dstArrayElement = 0;
+    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeInfo.descriptorCount = 1;
+
+    // Depending on the type of descriptors we are creating
+    // We are making buffer descriptors so we use pBufferInfo
+    writeInfo.pBufferInfo = &bufferInfo;
+    writeInfo.pImageInfo = nullptr;
+    writeInfo.pTexelBufferView = nullptr;
+
+    // Update the descriptor set specified in writeInfo
+    vkUpdateDescriptorSets(m_Device, 1, &writeInfo, 0, nullptr);
+  }
+
   return;
 }
 
@@ -1393,11 +1517,19 @@ void GraphicsHandler::createCommandBuffers(void) {
                          0,
                          VK_INDEX_TYPE_UINT16);
     // Bind vertex buffers
-    VkBuffer vertexBuffers[] = {
-    m_VertexBuffer
-  };
+    VkBuffer vertexBuffers[] = { m_VertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+    // Bind our descriptor sets
+    vkCmdBindDescriptorSets(m_CommandBuffers[i],
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            m_PipelineLayout,
+                            0,
+                            1,
+                            &m_DescriptorSets[i],
+                            0,
+                            nullptr);
 
     // vkCmdDraw(m_CommandBuffers[i], 3, 1, 0, 0);
     // Now we use drawIndexed
@@ -2020,6 +2152,8 @@ void GraphicsHandler::recreateSwapChain(void) {
 
   createDescriptorPool();
 
+  createDescriptorSets();
+
   createCommandBuffers();
   std::cout << "[+] Done!" << std::endl;
   return;
@@ -2099,70 +2233,72 @@ void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+void GraphicsHandler::createImage(uint32_t width,
+                                 uint32_t height,
+                                 VkFormat format,
+                                 VkImageTiling tiling,
+                                 VkImageUsageFlags usage,
+                                 VkMemoryPropertyFlags properties,
+                                 VkImage& image,
+                                  VkDeviceMemory& imageMemory) {
   VkResult result;
 
-  // Describe command buffer creation
-  VkCommandBufferAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.pNext = nullptr;
+  imageInfo.flags = 0;
+  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.extent.width = width;
+  imageInfo.extent.height = height;
+  imageInfo.extent.depth = 1;
+  imageInfo.mipLevels = 1;
+  imageInfo.arrayLayers = 1;
+  imageInfo.format = format;
+  imageInfo.tiling = tiling;
+  imageInfo.usage = usage;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  result = vkCreateImage(m_Device, &imageInfo, nullptr, &image);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create image"); }
+
+  VkMemoryRequirements memRequirements;
+  vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
+
+  VkMemoryAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   allocInfo.pNext = nullptr;
-  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  allocInfo.commandPool = m_CommandPool;
-  allocInfo.commandBufferCount = 1;
+  allocInfo.allocationSize = memRequirements.size;
+  allocInfo.memoryTypeIndex =
+    findMemoryType(memRequirements.memoryTypeBits, properties);
 
-  // Create command buffer
-  VkCommandBuffer commandBuffer;
-  result = vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-  if (result != VK_SUCCESS) {
-    G_EXCEPT("Failed to allocate command buffer for data transfer");
-  }
+  result = vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory);
 
-  // Begin commands
-  VkCommandBufferBeginInfo beginInfo{};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.pNext = nullptr;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
-  if (result != VK_SUCCESS) {
-    G_EXCEPT("Failed to begin command recording");
-  }
+  result = vkBindImageMemory(m_Device, image, imageMemory, 0);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to bind image memory"); }
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+  // Create command buffer and prepare for recording
+  // immediately ready to record after this function
+  VkCommandBuffer commandBuffer = beginSingleCommands();
 
   // Describe copy command
   VkBufferCopy copyRegion{};
   copyRegion.srcOffset = 0;
   copyRegion.dstOffset = 0;
   copyRegion.size = size;
-  // Submit copy command
+
+  // Record copy command
   vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-  result = vkEndCommandBuffer(commandBuffer);
-  if (result != VK_SUCCESS) {
-    G_EXCEPT("Failed to end command recording");
-  }
 
-  VkSubmitInfo submitInfo{};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.pNext = nullptr;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-  submitInfo.signalSemaphoreCount = 0;
-  submitInfo.pSignalSemaphores = nullptr;
-  submitInfo.waitSemaphoreCount = 0;
-  submitInfo.pWaitSemaphores = nullptr;
-  submitInfo.pWaitDstStageMask = nullptr;
-
-  // Much more optimal to use fences when doing multiple submits
-
-  result = vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  if (result != VK_SUCCESS) {
-    G_EXCEPT("Failed to submit for staging buffer transfer");
-  }
-
-  result = vkQueueWaitIdle(m_GraphicsQueue);
-  if (result != VK_SUCCESS) {
-    G_EXCEPT("Queue wait failed");
-  }
-
-  vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
+  // end recording
+  endSingleCommands(commandBuffer);
 
   return;
 }
@@ -2171,7 +2307,7 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::updateUniformBuffer(int bufferIndex) {
+void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex) {
   static auto startTime = std::chrono::high_resolution_clock::now();
 
   auto currentTime = std::chrono::high_resolution_clock::now();
@@ -2190,8 +2326,85 @@ void GraphicsHandler::updateUniformBuffer(int bufferIndex) {
   // Send the data to the uniform buffer
   // it was created to be accessible by cpu so just use vkMap
   void* data;
-  vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(UniformBufferObject), 0, &data);
-  memcpy(data, &ubo, sizeof(UniformBufferObject));
+  vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(ubo), 0, &data);
+  memcpy(data, &ubo, sizeof(ubo));
   vkUnmapMemory(m_Device, m_UniformMemory[bufferIndex]);
   return;
 }
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+VkCommandBuffer GraphicsHandler::beginSingleCommands(void) {
+  VkResult result;
+
+  VkCommandBufferAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.pNext = nullptr;
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandPool = m_CommandPool;
+  allocInfo.commandBufferCount = 1;
+
+  VkCommandBuffer commandBuffer;
+  vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.pNext = nullptr;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  // Initialize command buffer for recording
+  result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create and begin a command buffer"); }
+
+  return commandBuffer;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer) {
+  VkResult result;
+
+  // End recording within' command buffer
+  result = vkEndCommandBuffer(commandBuffer);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to end recording command buffer"); }
+
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.pNext = nullptr;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+
+  // Submit queue for processing
+  result = vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to submit queue"); }
+
+  // Wait for the queue to finish
+  result = vkQueueWaitIdle(m_GraphicsQueue);
+  if(result != VK_SUCCESS) { G_EXCEPT("Error occurred waiting for queue to finish"); }
+
+  // Free up the command buffer
+  vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::transitionImageLayout(VkImage image,
+                                            VkFormat format,
+                                            VkImageLayout oldLayout,
+                                            VkImageLayout newLayout) {
+  VkCommandBuffer commandBuffer = beginSingleCommands();
+
+  endSingleCommands(commandBuffer);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/

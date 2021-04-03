@@ -14,6 +14,7 @@
 #include <cstring>
 #include <filesystem>
 
+
 #include "ExceptionHandler.h"
 #include "Primitives.h"
 
@@ -123,14 +124,39 @@ class GraphicsHandler {
                 void createGraphicsPipeline(void);
                 void createFrameBuffers(void);
                 void createCommandPool(void);
+                void createTextureImage(void);
                 void createCommandBuffers(void);
                 void createSyncObjects(void);
                 void createVertexBuffer(void);
                 void createIndexBuffer(void);
                 void createUniformBuffer(void);
                 void createDescriptorPool(void);
-                void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory);
-                void updateUniformBuffer(int bufferIndex);
+                void createDescriptorSets(void);
+                void createBuffer(VkDeviceSize size,
+                                  VkBufferUsageFlags usage,
+                                  VkMemoryPropertyFlags properties,
+                                  VkBuffer* buffer,
+                                  VkDeviceMemory* bufferMemory);
+                void createImage(uint32_t width,
+                                 uint32_t height,
+                                 VkFormat format,
+                                 VkImageTiling tiling,
+                                 VkImageUsageFlags usage,
+                                 VkMemoryPropertyFlags properties,
+                                 VkImage& image,
+                                 VkDeviceMemory& imageMemory);
+                // Returns a command buffer that has been initialized
+                // with vkCmdBeginCommandBuffer
+                VkCommandBuffer beginSingleCommands(void);
+                // Ends a command buffer and submits it to
+                // graphics queue for processing
+                void endSingleCommands(VkCommandBuffer commandBuffer);
+                // Handles image layout transistions
+                void transitionImageLayout(VkImage image,
+                                            VkFormat format,
+                                            VkImageLayout oldLayout,
+                                            VkImageLayout newLayout);
+                void updateUniformBuffer(uint32_t bufferIndex);
 
                 // Frees binded resources for recreation
                 void cleanupSwapChain(void);
@@ -199,6 +225,8 @@ class GraphicsHandler {
                 VkDeviceMemory m_VertexMemory;  // ditto
                 VkBuffer m_IndexBuffer;
                 VkDeviceMemory m_IndexMemory;
+                VkImage m_TextureImage;
+                VkDeviceMemory m_TextureMemory;
 
                 /*
                   -- Sync objects --
@@ -228,6 +256,7 @@ class GraphicsHandler {
                 VkPipelineLayout m_PipelineLayout;
                 VkDescriptorSetLayout m_DescriptorLayout;
                 VkDescriptorPool m_DescriptorPool;
+                std::vector<VkDescriptorSet> m_DescriptorSets;
 
 
                 // selected parameters that were supported by surface
