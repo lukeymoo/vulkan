@@ -25,6 +25,8 @@ class WindowHandler
 		void go(void);
 		void draw(size_t currentFrame); // Calls GraphicsHandler to update buffers
 
+		// Create a destroy event
+		XEvent createEvent(const char* eventType);
 		bool goodInit = true;
 		std::unique_ptr<GraphicsHandler> gfx;
 	private:

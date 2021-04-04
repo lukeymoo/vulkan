@@ -33,7 +33,15 @@ WindowHandler::WindowHandler(int w, int h, const char* title)
     XSetWMProtocols(display, window, &del_window, 1);
 
     // Configure to handle specified events
-    XSelectInput(display, window, ExposureMask | KeyPressMask);
+    XSelectInput(display, window,
+				 FocusChangeMask |
+				 ButtonPressMask |
+				 ButtonReleaseMask |
+				 ExposureMask |
+				 KeyPressMask |
+				 KeyReleaseMask |
+				 NoExpose |
+				 SubstructureNotifyMask);
 
     XStoreName(display, window, title);
 
@@ -98,14 +106,36 @@ void WindowHandler::go(void)
 				case KeyPress:
 					if(XLookupKeysym(&event.xkey, 0) == XK_Escape) {
 						// Generate a close event for graceful exit
-						XEvent cev;
-						cev.xclient.type = ClientMessage;
-						cev.xclient.window = window;
-						cev.xclient.message_type = XInternAtom(display, "WM_PROTOCOLS", true);
-						cev.xclient.format = 32;
-						cev.xclient.data.l[0] = XInternAtom(display, "WM_DELETE_WINDOW", false);
-						cev.xclient.data.l[1] = CurrentTime;
+						XEvent cev = createEvent("WM_DELETE_WINDOW");
 						XSendEvent(display, window, false, ExposureMask, &cev);
+					}
+					/*
+					** WASD & SPACE key PRESS handling
+					 */
+					if (XLookupKeysym(&event.xkey, 0) == XK_w) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_a) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_s) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_d) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_space) {
+					}
+					break;
+				case KeyRelease:
+					/*
+					  WASD & SPACE key RELEASE handling
+					*/
+					if (XLookupKeysym(&event.xkey, 0) == XK_w) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_a) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_s) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_d) {
+					}
+					if (XLookupKeysym(&event.xkey, 0) == XK_space) {
 					}
 					break;
 				case Expose:
@@ -120,13 +150,13 @@ void WindowHandler::go(void)
 			// Flush event queue if nothing we're interested in
 			XFlush(display);
 		}
-		auto startTime = std::chrono::high_resolution_clock::now();
+		//auto startTime = std::chrono::high_resolution_clock::now();
 		// After processing events, update buffers and render
 		draw(currentFrame);
 		// Get current time again and calculate the difference
-		auto endTime = std::chrono::high_resolution_clock::now();
-		auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startTime);
-		std::cout << "[+] Event processing : " << std::fixed << std::setprecision(10) << elapsed.count() << std::endl;
+		//auto endTime = std::chrono::high_resolution_clock::now();
+		//auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startTime);
+		//std::cout << "[+] Event processing : " << std::fixed << std::setprecision(10) << elapsed.count() << std::endl;
 	} // end loop
 
 	return;
@@ -237,4 +267,17 @@ void WindowHandler::draw(size_t currentFrame) {
 			break;
 	}
 	return;
+}
+
+XEvent WindowHandler::createEvent(const char* eventType) {
+	XEvent cev;
+
+	cev.xclient.type = ClientMessage;
+	cev.xclient.window = window;
+	cev.xclient.message_type = XInternAtom(display, "WM_PROTOCOLS", true);
+	cev.xclient.format = 32;
+	cev.xclient.data.l[0] = XInternAtom(display, eventType, false);
+	cev.xclient.data.l[1] = CurrentTime;
+
+	return cev;
 }
