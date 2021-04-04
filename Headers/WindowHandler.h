@@ -10,27 +10,29 @@
 
 class WindowHandler
 {
-public:
-	class Exception : public ExceptionHandler
-	{
 	public:
-		Exception(int line, std::string file, std::string message);
-		~Exception(void);
+		class Exception : public ExceptionHandler
+		{
+			public:
+				Exception(int line, std::string file, std::string message);
+				~Exception(void);
 
-		std::string getType(void);
-	};
-	WindowHandler(int w, int h, const char* title);
-	~WindowHandler();
+				std::string getType(void);
+		};
+		WindowHandler(int w, int h, const char* title);
+		~WindowHandler();
 
-	void go(void);
+		void go(void);
+		void draw(size_t currentFrame); // Calls GraphicsHandler to update buffers
 
-	std::unique_ptr<GraphicsHandler> gfx;
-private:
-	Display* display;
-	Window window;
-	XEvent event;
-	int screen;
-	bool running = true;
+		bool goodInit = true;
+		std::unique_ptr<GraphicsHandler> gfx;
+	private:
+		Display* display;
+		Window window;
+		XEvent event;
+		int screen;
+		bool running = true;
 };
 
 #define W_EXCEPT(string) throw Exception(__LINE__, __FILE__, string)

@@ -19,7 +19,7 @@ std::string ExceptionHandler::getType(void)
 std::string ExceptionHandler::getErrorDescription(void)
 {
     std::ostringstream oss;
-    oss << errorDescription << std::endl
+    oss << std::endl << errorDescription << std::endl
         << "Line: " << line << std::endl
         << "File : " << file << std::endl;
     errorDescription = oss.str();

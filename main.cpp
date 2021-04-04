@@ -5,7 +5,11 @@
 int main(__attribute__((unused))int argc, __attribute__((unused))char *argv[]) {
   try {
     WindowHandler wnd(WINDOW_WIDTH, WINDOW_HEIGHT, "Bloody Day");
-    wnd.go();
+    if (wnd.goodInit) {
+      wnd.go();
+    } else {
+      std::cout << "\t[-] Bad initialization, program ending!" << std::endl;
+    }
   }
   catch (ExceptionHandler& e) {
     std::cout << e.getType() << std::endl

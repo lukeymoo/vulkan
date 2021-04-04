@@ -16,6 +16,7 @@ WindowHandler::Exception::~Exception(void)
 /* Create window and initialize Vulkan */
 WindowHandler::WindowHandler(int w, int h, const char* title)
 {
+	XInitThreads();
 
     // Open connection xserver
     display = XOpenDisplay(NULL);
@@ -38,6 +39,7 @@ WindowHandler::WindowHandler(int w, int h, const char* title)
 
     // Display window
     XMapWindow(display, window);
+	XFlush(display);
 
     // Create the graphics
     gfx = std::make_unique<GraphicsHandler>(display, &window, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -50,21 +52,21 @@ WindowHandler::WindowHandler(int w, int h, const char* title)
 		gfx->initGraphics();
 	}
 	catch (ExceptionHandler& e) {
-		std::cout << e.getType() << std::endl << e.getErrorDescription() << std::endl;
-		std::exit(-1);
+		std::cout << std::endl << e.getType() << std::endl << e.getErrorDescription() << std::endl;
+		// main.cpp will handle bad return
+		goodInit = false;
 	}
 	catch (std::exception& e) {
-		std::cout << "Standard Library Exception" << std::endl << e.what() << std::endl;
-		std::exit(-1);
+		std::cout << std::endl << "Standard Library Exception" << std::endl << e.what() << std::endl;
+		goodInit = false;
 	}
 	catch (...) {
-		std::cout << "Unhandled Exception" << std::endl
+		std::cout << std::endl << "Unhandled Exception" << std::endl
 				  << "Unhandled Exception! No further information available" << std::endl;
-		std::exit(-1);
+		// main.cpp will handle bad return
+		goodInit = false;
 	}
-	
-
-    return;
+	return;
 }
 
 WindowHandler::~WindowHandler(void)
@@ -72,123 +74,26 @@ WindowHandler::~WindowHandler(void)
 	std::cout << "[+] Calling release of graphics resources" << std::endl;
 	/*
 	  !! Vulkan cannot be properly cleaned up if X11 resources are released beforehand !!
-	  Call Vulkan resource destruction NOW
 	*/
+	// manually calling gfx cleanup
 	gfx.reset();
 	std::cout << "[+] Cleaning up window resources" << std::endl;
-	XDestroyWindow(display, window);
-	XCloseDisplay(display);
+
+	if (display && window) {
+		XDestroyWindow(display, window);
+		XCloseDisplay(display);
+	}
+	std::cout << "Bye bye" << std::endl;
 	return;
 }
 
 void WindowHandler::go(void)
 {
 	size_t currentFrame = 0;
-
 	while(running) {
-		/*
-		  Draw commands here
-		*/
-		VkResult result;
-		uint32_t imageIndex;
-
-		// wait for fence
-		vkWaitForFences(gfx->m_Device, 1, &gfx->m_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-
-		/* -- DRAW BEGINS HERE -- */
-
-
-		currentFrame = (currentFrame + 1) & MAX_FRAMES_IN_FLIGHT;
-
-		result = vkAcquireNextImageKHR(gfx->m_Device,
-									   gfx->m_Swap,
-									   UINT64_MAX,
-									   gfx->m_imageAvailableSemaphore[currentFrame],
-									   VK_NULL_HANDLE,
-									   &imageIndex);
-
-		// Do some case checking
-		switch (result) {
-			case VK_ERROR_OUT_OF_DATE_KHR:
-				std::cout << "[+] Next image needs new swap" << std::endl;
-				gfx->recreateSwapChain();
-				// Will skip handling x11 events this iteration
-				// reset loop
-				continue;
-				break;
-			case VK_SUBOPTIMAL_KHR:
-				std::cout << "[/] Swapchain is no longer optimal" << std::endl;
-				break;
-			case VK_SUCCESS:
-				break;
-			default: // unhandled error occurred
-				W_EXCEPT("There was an unhandled exception while acquiring a swapchain image for rendering!");
-				break;
-		}
-
-		// Update our uniform buffer before drawing
-		gfx->updateUniformBuffer(imageIndex);
-
-		// If image still use, wait for it
-		if (gfx->m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-			vkWaitForFences(gfx->m_Device, 1, &gfx->m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-		}
-
-		// Now mark the image as in use
-		gfx->m_imagesInFlight[imageIndex] = gfx->m_inFlightFences[currentFrame];
-
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		VkSemaphore waitSemaphores[] = { gfx->m_imageAvailableSemaphore[currentFrame] };
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &gfx->m_CommandBuffers[imageIndex];
-		VkSemaphore renderSemaphores[] = { gfx->m_renderFinishedSemaphore[currentFrame] };
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = renderSemaphores;
-
-		vkResetFences(gfx->m_Device, 1, &gfx->m_inFlightFences[currentFrame]);
-
-		result = vkQueueSubmit(gfx->m_GraphicsQueue, 1, &submitInfo, gfx->m_inFlightFences[currentFrame]);
-		if (result != VK_SUCCESS) { W_EXCEPT("Failed to submit draw command buffer!"); }
-
-		// Presentation
-		VkPresentInfoKHR presentInfo{};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.pNext = nullptr;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = renderSemaphores;
-		VkSwapchainKHR swapchains[] = { gfx->m_Swap };
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapchains;
-		presentInfo.pImageIndices = &imageIndex;
-		presentInfo.pResults = nullptr;
-
-		result = vkQueuePresentKHR(gfx->m_PresentQueue, &presentInfo);
-		// Do some case checking
-		switch (result) {
-			case VK_ERROR_OUT_OF_DATE_KHR:
-				std::cout << "[+] Presentation needs new swap" << std::endl;
-				gfx->recreateSwapChain();
-				// reset loop -- will skip handling x11 events this iteration
-				continue;
-				break;
-			case VK_SUBOPTIMAL_KHR:
-				std::cout << "[/] Swapchain is no longer optimal" << std::endl;
-				break;
-			case VK_SUCCESS:
-				break;
-			default: // unhandled error occurred
-				W_EXCEPT("There was an unhandled exception while acquiring a swapchain image for rendering!");
-				break;
-		}
-
-		if(XPending(display)) {
+		while(XPending(display)) {
+			// count time for processing events
 			XNextEvent(display, &event);
-
 			switch(event.type) {
 				case KeyPress:
 					if(XLookupKeysym(&event.xkey, 0) == XK_Escape) {
@@ -211,8 +116,125 @@ void WindowHandler::go(void)
 					running = false;
 					break;
 			}
+
+			// Flush event queue if nothing we're interested in
+			XFlush(display);
 		}
+		auto startTime = std::chrono::high_resolution_clock::now();
+		// After processing events, update buffers and render
+		draw(currentFrame);
+		// Get current time again and calculate the difference
+		auto endTime = std::chrono::high_resolution_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startTime);
+		std::cout << "[+] Event processing : " << std::fixed << std::setprecision(10) << elapsed.count() << std::endl;
 	} // end loop
 
+	return;
+}
+
+
+
+
+
+
+
+
+void WindowHandler::draw(size_t currentFrame) {
+	VkResult result;
+	uint32_t imageIndex;
+
+	// wait for fence
+	vkWaitForFences(gfx->m_Device, 1, &gfx->m_inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+	/* -- DRAW BEGINS HERE -- */
+
+
+	currentFrame = (currentFrame + 1) & MAX_FRAMES_IN_FLIGHT;
+
+	result = vkAcquireNextImageKHR(gfx->m_Device,
+								   gfx->m_Swap,
+								   UINT64_MAX,
+								   gfx->m_imageAvailableSemaphore[currentFrame],
+								   VK_NULL_HANDLE,
+								   &imageIndex);
+
+	// Do some case checking
+	switch (result) {
+		case VK_ERROR_OUT_OF_DATE_KHR:
+			std::cout << "[+] Next image needs new swap" << std::endl;
+			gfx->recreateSwapChain();
+			// Will skip handling x11 events this iteration
+			// reset loop
+			return;
+			break;
+		case VK_SUBOPTIMAL_KHR:
+			std::cout << "[/] Swapchain is no longer optimal" << std::endl;
+			break;
+		case VK_SUCCESS:
+			break;
+		default: // unhandled error occurred
+			W_EXCEPT("There was an unhandled exception while acquiring a swapchain image for rendering!");
+			break;
+	}
+
+	// Update our uniform buffer before drawing
+	gfx->updateUniformBuffer(imageIndex);
+
+	// If image still use, wait for it
+	if (gfx->m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+		vkWaitForFences(gfx->m_Device, 1, &gfx->m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+	}
+
+	// Now mark the image as in use
+	gfx->m_imagesInFlight[imageIndex] = gfx->m_inFlightFences[currentFrame];
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkSemaphore waitSemaphores[] = { gfx->m_imageAvailableSemaphore[currentFrame] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &gfx->m_CommandBuffers[imageIndex];
+	VkSemaphore renderSemaphores[] = { gfx->m_renderFinishedSemaphore[currentFrame] };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = renderSemaphores;
+
+	vkResetFences(gfx->m_Device, 1, &gfx->m_inFlightFences[currentFrame]);
+
+	result = vkQueueSubmit(gfx->m_GraphicsQueue, 1, &submitInfo, gfx->m_inFlightFences[currentFrame]);
+	if (result != VK_SUCCESS) { W_EXCEPT("Failed to submit draw command buffer!"); }
+
+	// Presentation
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = nullptr;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = renderSemaphores;
+	VkSwapchainKHR swapchains[] = { gfx->m_Swap };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapchains;
+	presentInfo.pImageIndices = &imageIndex;
+	presentInfo.pResults = nullptr;
+
+	result = vkQueuePresentKHR(gfx->m_PresentQueue, &presentInfo);
+	// Do some case checking
+	switch (result) {
+		case VK_ERROR_OUT_OF_DATE_KHR:
+			std::cout << "[+] Presentation needs new swap" << std::endl;
+			gfx->recreateSwapChain();
+			// reset loop -- will skip handling x11 events this iteration
+			return;
+			break;
+		case VK_SUBOPTIMAL_KHR:
+			std::cout << "[/] Swapchain is no longer optimal" << std::endl;
+			break;
+		case VK_SUCCESS:
+			break;
+		default: // unhandled error occurred
+			W_EXCEPT("There was an unhandled exception while acquiring a swapchain image for rendering!");
+			break;
+	}
 	return;
 }

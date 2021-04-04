@@ -36,6 +36,8 @@ const std::vector<const char*> requestedDeviceExtensions = {
 "VK_KHR_swapchain"
 };
 
+// Uncomment to disable debugging
+//#define NDEBUG
 #ifndef NDEBUG
 const bool enableValidationLayers = true;
 #else
@@ -156,6 +158,10 @@ class GraphicsHandler {
                                             VkFormat format,
                                             VkImageLayout oldLayout,
                                             VkImageLayout newLayout);
+                void copyBufferToImage(VkBuffer buffer,
+                                       VkImage image,
+                                       uint32_t width,
+                                       uint32_t height);
                 void updateUniformBuffer(uint32_t bufferIndex);
 
                 // Frees binded resources for recreation
@@ -258,7 +264,6 @@ class GraphicsHandler {
                 VkDescriptorPool m_DescriptorPool;
                 std::vector<VkDescriptorSet> m_DescriptorSets;
 
-
                 // selected parameters that were supported by surface
                 VkSurfaceFormatKHR selectedSwapFormat{};
                 VkExtent2D selectedSwapExtent{};
@@ -280,7 +285,6 @@ class GraphicsHandler {
                 Window* window;
 };
 
-#define G_EXCEPT(string)                                                \
-        throw Exception(__LINE__, __FILE__, string); std::exit(-1);
+#define G_EXCEPT(string) throw Exception(__LINE__, __FILE__, string);
 
 #endif  // HEADERS_GRAPHICSHANDLER_H_

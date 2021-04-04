@@ -71,17 +71,11 @@ GraphicsHandler::~GraphicsHandler() {
     Instance created first, upon which other
     handles are obtained so it is destroyed LAST
   */
-
+  // Wait for all queues to complete before initiating destruction
   vkDeviceWaitIdle(m_Device);
-  vkQueueWaitIdle(m_GraphicsQueue);
-  vkQueueWaitIdle(m_PresentQueue);
-
   cleanupSwapChain();
-
   /*
-
     Cleanup uniform buffer resources
-
   */
   // Cleanup loaded textures
   if(m_TextureImage != VK_NULL_HANDLE) {
@@ -105,19 +99,27 @@ GraphicsHandler::~GraphicsHandler() {
   // Cleanup buffer
   if (m_IndexBuffer != VK_NULL_HANDLE) {
     vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-  }
   // release memory
+  }
   if (m_VertexMemory != VK_NULL_HANDLE) {
     vkFreeMemory(m_Device, m_IndexMemory, nullptr);
   }
-
-  // Destroy sync objects
-  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroySemaphore(m_Device, m_imageAvailableSemaphore[i], nullptr);
-    vkDestroySemaphore(m_Device, m_renderFinishedSemaphore[i], nullptr);
-    vkDestroyFence(m_Device, m_inFlightFences[i], nullptr);
+  // Destroy m_imageAvailableSemaphore objects
+  for (const auto& semaphore : m_imageAvailableSemaphore) {
+    if (semaphore != VK_NULL_HANDLE) {
+      vkDestroySemaphore(m_Device, semaphore, nullptr);
+    }
   }
-
+  // Destroy m_renderFinishedSemaphore objects
+  for (const auto& semaphore : m_renderFinishedSemaphore) {
+    vkDestroySemaphore(m_Device, semaphore, nullptr);
+  }
+  // Destroy fence objects
+  for (const auto& fence : m_inFlightFences) {
+    if (fence != VK_NULL_HANDLE) {
+      vkDestroyFence(m_Device, fence, nullptr);
+    }
+  }
   // Destroy command pool
   if (m_CommandPool != VK_NULL_HANDLE) {
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
@@ -312,6 +314,13 @@ void GraphicsHandler::initVulkan(void) {
   */
   std::cout << "[+] Allocating for command buffer" << std::endl;
   createCommandBuffers();
+
+  /*
+   Loads specified textures and converts raw data in into
+   vulkan accessible images
+  */
+  std::cout << "[+] Loading textures" << std::endl;
+  createTextureImage();
 
   /*
     Used to synchronize operation
@@ -1205,7 +1214,7 @@ void GraphicsHandler::createTextureImage(void) {
   int textureChannels;
 
   // Load our image
-  stbi_uc* pixels = stbi_load("textures/statue.jppg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+  stbi_uc* pixels = stbi_load("textures/statue.jpg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
 
   // Create a buffer
   VkDeviceSize imageSize = textureWidth * textureHeight * 4;
@@ -1233,6 +1242,10 @@ void GraphicsHandler::createTextureImage(void) {
   // Don't forget to free memory used by the loader
   stbi_image_free(pixels);
 
+  // Create the vulkan image which will receive the texture data
+  // from the staging buffer
+  // -- Before the transfer we need to transition the image layout
+  // using a barrier
   createImage(
     textureWidth,
     textureHeight,
@@ -1242,6 +1255,34 @@ void GraphicsHandler::createTextureImage(void) {
     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     m_TextureImage,
     m_TextureMemory);
+
+  // transition the image to receive the data
+  // oldLayout => UNDEFINED as our createImage() uses this flag
+  // when creating a new image
+  transitionImageLayout(m_TextureImage,
+                        VK_FORMAT_R8G8B8A8_SRGB,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+  // Now our image has been transitioned to a state ready
+  // to receive data
+  copyBufferToImage(stagingBuffer,
+                    m_TextureImage,
+                    static_cast<uint32_t>(textureWidth),
+                    static_cast<uint32_t>(textureHeight));
+
+  // After the data has been moved into the vulkan image
+  // we need to transition the image so that the shader can sample it
+  // oldLayout => looking at the previous call it is configured for receiving data
+  // newLayout => self explanatory, configure for shader reading
+  transitionImageLayout(m_TextureImage,
+                        VK_FORMAT_R8G8B8A8_SRGB,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  // Cleanup staging resources
+  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+  vkFreeMemory(m_Device, stagingMemory, nullptr);
   return;
 }
 
@@ -1921,18 +1962,23 @@ debugMessageProcessor(
         << ", " << callback_data->pMessageIdName << std::endl
         << callback_data->pMessage << std::endl << std::endl;
     std::cout << oss.str();
-  } else if (message_severity &
-             VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
-    /*std::ostringstream oss;
+  } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT && 1 == 2) {
+    // Disabled by the impossible statement
+    std::ostringstream oss;
       oss << std::endl << "Verbose message : " << callback_data->messageIdNumber << ", " << callback_data->pMessageIdName
       << std::endl << callback_data->pMessage << std::endl << std::endl;
-      OutputDebugString(oss.str().c_str());*/
+      std::cout << oss.str();
   } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
     std::ostringstream oss;
     oss << std::endl << "Error: " << callback_data->messageIdNumber
         << ", " << callback_data->pMessageIdName << std::endl
         << callback_data->pMessage << std::endl << std::endl;
     std::cout << oss.str();
+  } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+    std::ostringstream oss;
+    oss << std::endl << "Info: " << callback_data->messageIdNumber
+        << ", " << callback_data->pMessageIdName << std::endl
+        << callback_data->pMessage << std::endl << std::endl;
   }
   return VK_FALSE;
 }
@@ -1965,7 +2011,10 @@ VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void) {
   // application will prefer MAILBOX present mode as it is akin to
   // triple buffering with less latency
   for (const auto& presentMode : m_SurfaceDetails.presentModes) {
+    std::ostringstream oss;
     if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+      return presentMode;
+    } else if (presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
       return presentMode;
     }
   }
@@ -2059,7 +2108,9 @@ std::vector<char> GraphicsHandler::readFile(std::string filename) {
 void GraphicsHandler::cleanupSwapChain(void) {
   // Clean up frame buffers
   for (const auto& buffer : m_Framebuffers) {
-    vkDestroyFramebuffer(m_Device, buffer, nullptr);
+    if(buffer != VK_NULL_HANDLE) {
+      vkDestroyFramebuffer(m_Device, buffer, nullptr);
+    }
   }
 
   if (!m_Framebuffers.empty()) {
@@ -2085,11 +2136,15 @@ void GraphicsHandler::cleanupSwapChain(void) {
   if(!m_UniformBuffers.empty()) {
     // Buffers
     for(const auto& buffer : m_UniformBuffers) {
-      vkDestroyBuffer(m_Device, buffer, nullptr);
+      if (buffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_Device, buffer, nullptr);
+      }
     }
     // Memory allocations
     for(const auto& memory : m_UniformMemory) {
-      vkFreeMemory(m_Device, memory, nullptr);
+      if (memory != VK_NULL_HANDLE) {
+        vkFreeMemory(m_Device, memory, nullptr);
+      }
     }
   }
   // Free descriptor pool
@@ -2099,7 +2154,9 @@ void GraphicsHandler::cleanupSwapChain(void) {
   // ensure we destroy all views to swap chain images
   if (!m_SwapViews.empty()) {
     for (const auto& view : m_SwapViews) {
-      vkDestroyImageView(m_Device, view, nullptr);
+      if (view != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_Device, view, nullptr);
+      }
     }
   }
   if (m_Swap != VK_NULL_HANDLE && m_Swap != nullptr) {
@@ -2249,16 +2306,19 @@ void GraphicsHandler::createImage(uint32_t width,
   imageInfo.pNext = nullptr;
   imageInfo.flags = 0;
   imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.format = format;
   imageInfo.extent.width = width;
   imageInfo.extent.height = height;
   imageInfo.extent.depth = 1;
   imageInfo.mipLevels = 1;
   imageInfo.arrayLayers = 1;
-  imageInfo.format = format;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.tiling = tiling;
   imageInfo.usage = usage;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.queueFamilyIndexCount = 0;  // not used when exclusive
+  imageInfo.pQueueFamilyIndices = nullptr;  // not used when exclusive
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
   result = vkCreateImage(m_Device, &imageInfo, nullptr, &image);
   if(result != VK_SUCCESS) { G_EXCEPT("Failed to create image"); }
@@ -2402,7 +2462,91 @@ void GraphicsHandler::transitionImageLayout(VkImage image,
                                             VkImageLayout newLayout) {
   VkCommandBuffer commandBuffer = beginSingleCommands();
 
+  VkImageMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.pNext = nullptr;
+  barrier.oldLayout = oldLayout;
+  barrier.newLayout = newLayout;
 
+  // If we are transfering ownership between queues
+  // they'd be specified here; Otherwise, ignore
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+  barrier.image = image;
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+
+  VkPipelineStageFlags sourceStage = 0;
+  VkPipelineStageFlags destinationStage = 0;
+
+  // Case => Newly created image to be loaded with data
+  if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+     newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // Case => Post image transfer to be read into shader stage
+  } else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+            newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // Fragment shader stage will be doing the sampling
+    // so specify here
+    destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  }
+
+  vkCmdPipelineBarrier(
+    commandBuffer,
+    sourceStage, destinationStage,
+    0,
+    0, nullptr,
+    0, nullptr,
+    1, &barrier);
+
+  endSingleCommands(commandBuffer);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::copyBufferToImage(VkBuffer buffer,
+                                        VkImage image,
+                                        uint32_t width,
+                                        uint32_t height) {
+  VkCommandBuffer commandBuffer = beginSingleCommands();
+
+  VkBufferImageCopy region{};
+  region.bufferOffset = 0;
+
+  // Specifying 0, 0 here indicates to Vulkan that
+  // the buffer data is tightly packed as a 1D array
+  region.bufferRowLength = 0;
+  region.bufferImageHeight = 0;
+
+  region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  region.imageSubresource.mipLevel = 0;
+  region.imageSubresource.baseArrayLayer = 0;
+  region.imageSubresource.layerCount = 1;
+
+  region.imageOffset = { 0, 0, 0 };
+  region.imageExtent = { width, height, 1 };
+
+
+  // Copy the buffer using the predefined region info
+  vkCmdCopyBufferToImage(commandBuffer,
+                                  buffer,
+                                  image,
+                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                  1,
+                                  &region);
 
   endSingleCommands(commandBuffer);
   return;
