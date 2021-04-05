@@ -127,6 +127,8 @@ class GraphicsHandler {
                 void createFrameBuffers(void);
                 void createCommandPool(void);
                 void createTextureImage(void);
+                void createTextureImageView(void);
+                void createTextureSampler(void);
                 void createCommandBuffers(void);
                 void createSyncObjects(void);
                 void createVertexBuffer(void);
@@ -183,6 +185,7 @@ class GraphicsHandler {
                 VkShaderModule createShaderModule(const std::vector<char>& code);
                 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
                 void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+                VkImageView createImageView(VkImage image, VkFormat);
 
 
                 /*
@@ -233,6 +236,8 @@ class GraphicsHandler {
                 VkDeviceMemory m_IndexMemory;
                 VkImage m_TextureImage;
                 VkDeviceMemory m_TextureMemory;
+                VkImageView m_TextureImageView;
+                VkSampler m_TextureSampler;
 
                 /*
                   -- Sync objects --

@@ -33,6 +33,8 @@ GraphicsHandler::GraphicsHandler(Display* dsp, Window* wnd, int w, int h) {
   m_VertexMemory = nullptr;
   m_IndexBuffer = nullptr;
   m_IndexMemory = nullptr;
+  m_TextureImage = nullptr;
+  m_TextureImageView = nullptr;
   std::fill(m_imageAvailableSemaphore.begin(),
             m_imageAvailableSemaphore.end(), nullptr);
   std::fill(m_renderFinishedSemaphore.begin(),
@@ -74,10 +76,13 @@ GraphicsHandler::~GraphicsHandler() {
   // Wait for all queues to complete before initiating destruction
   vkDeviceWaitIdle(m_Device);
   cleanupSwapChain();
-  /*
-    Cleanup uniform buffer resources
-  */
   // Cleanup loaded textures
+  if(m_TextureSampler != VK_NULL_HANDLE) {
+    vkDestroySampler(m_Device, m_TextureSampler, nullptr);
+  }
+  if(m_TextureImageView != VK_NULL_HANDLE) {
+    vkDestroyImageView(m_Device, m_TextureImageView, nullptr);
+  }
   if(m_TextureImage != VK_NULL_HANDLE) {
     vkDestroyImage(m_Device, m_TextureImage, nullptr);
   }
@@ -318,9 +323,17 @@ void GraphicsHandler::initVulkan(void) {
   /*
    Loads specified textures and converts raw data in into
    vulkan accessible images
+
+   CALLS -- createTextureImageView() THEN
   */
   std::cout << "[+] Loading textures" << std::endl;
   createTextureImage();
+
+  /*
+    Creates a texture sampler that can be used for multiple images
+  */
+  std::cout << "[+] Creating sampler" << std::endl;
+  createTextureSampler();
 
   /*
     Used to synchronize operation
@@ -440,7 +453,9 @@ bool GraphicsHandler::selectAdapter(void) {
 
   // iterate each device found
   for (size_t i = 0; i < deviceInfoList.size(); i++) {
-    // prep structs
+    /*
+      CLEAR THE STRUCTURES TO AVOID BAD DATA FROM UNINITIALIZATION
+    */
     memset(&deviceInfoList.at(i).devProperties,
            0,
            sizeof(VkPhysicalDeviceProperties));
@@ -791,30 +806,7 @@ void GraphicsHandler::createSwapChain(void) {
   m_SwapViews.resize(swapImageCount);
 
   for (size_t i = 0; i < m_SwapImages.size(); i++) {
-    // describe view for image
-    VkImageViewCreateInfo viewCreateInfo{};
-    viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewCreateInfo.pNext = nullptr;
-    viewCreateInfo.flags = 0;
-    viewCreateInfo.image = m_SwapImages[i];
-    viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewCreateInfo.format = selectedSwapFormat.format;
-    viewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    viewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    viewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    viewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewCreateInfo.subresourceRange.baseMipLevel = 0;
-    viewCreateInfo.subresourceRange.levelCount = 1;
-    viewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    viewCreateInfo.subresourceRange.layerCount = 1;
-
-    // Create the image view
-    result = vkCreateImageView(m_Device,
-                               &viewCreateInfo,
-                               nullptr,
-                               &m_SwapViews[i]);
-    if (result != VK_SUCCESS) { G_EXCEPT("Error creating swap view"); }
+    m_SwapViews[i] = createImageView(m_SwapImages[i], selectedSwapFormat.format);
   }
 
   return;
@@ -1283,6 +1275,52 @@ void GraphicsHandler::createTextureImage(void) {
   // Cleanup staging resources
   vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
   vkFreeMemory(m_Device, stagingMemory, nullptr);
+
+  // Create a view into the newly created image
+  createTextureImageView();
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::createTextureImageView(void) {
+  m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::createTextureSampler(void) {
+  VkResult result;
+
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.pNext = nullptr;
+  samplerInfo.flags = 0;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+  samplerInfo.mipLodBias = 0;
+  samplerInfo.anisotropyEnable =
+    (deviceInfoList.at(selectedIndex).devFeatures.samplerAnisotropy) ? VK_TRUE : VK_FALSE;
+  samplerInfo.maxAnisotropy =
+    deviceInfoList.at(selectedIndex).devProperties.limits.maxSamplerAnisotropy;
+  samplerInfo.compareEnable = VK_FALSE;
+  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.minLod = 0.0f;
+  samplerInfo.maxLod = 0.0f;
+  samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+  result = vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create texture sampler"); }
   return;
 }
 
@@ -2213,7 +2251,7 @@ void GraphicsHandler::recreateSwapChain(void) {
   createDescriptorSets();
 
   createCommandBuffers();
-  std::cout << "[+] Done!" << std::endl;
+  std::cout << "\t[+] Done!" << std::endl;
   return;
 }
 
@@ -2550,6 +2588,40 @@ void GraphicsHandler::copyBufferToImage(VkBuffer buffer,
 
   endSingleCommands(commandBuffer);
   return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format) {
+  VkResult result;
+
+  VkImageView imageView;
+
+  VkImageViewCreateInfo viewInfo{};
+  viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  viewInfo.pNext = nullptr;
+  viewInfo.flags = 0;
+  viewInfo.image = image;
+  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format = format;
+  viewInfo.components = {
+  VK_COMPONENT_SWIZZLE_IDENTITY,
+  VK_COMPONENT_SWIZZLE_IDENTITY,
+  VK_COMPONENT_SWIZZLE_IDENTITY,
+  VK_COMPONENT_SWIZZLE_IDENTITY
+};
+  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel = 0;
+  viewInfo.subresourceRange.levelCount = 1;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount = 1;
+
+  result = vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView);
+  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create view into loaded texture"); }
+
+  return imageView;
 }
 
 /*

@@ -145,11 +145,10 @@ void WindowHandler::go(void)
 					std::cout << "[+] Exit requested" << std::endl;
 					running = false;
 					break;
-			}
-
-			// Flush event queue if nothing we're interested in
-			XFlush(display);
-		}
+				default:  // Unhandled events do nothing
+					break;
+			} // End of switch
+		} // End of X11 Event loop
 		//auto startTime = std::chrono::high_resolution_clock::now();
 		// After processing events, update buffers and render
 		draw(currentFrame);
@@ -157,7 +156,7 @@ void WindowHandler::go(void)
 		//auto endTime = std::chrono::high_resolution_clock::now();
 		//auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startTime);
 		//std::cout << "[+] Event processing : " << std::fixed << std::setprecision(10) << elapsed.count() << std::endl;
-	} // end loop
+	} // End of game loop
 
 	return;
 }
