@@ -177,6 +177,33 @@ GraphicsHandler.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/GraphicsHandler.cpp.s
 .PHONY : GraphicsHandler.cpp.s
 
+Models.o: Models.cpp.o
+
+.PHONY : Models.o
+
+# target to build an object file
+Models.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Models.cpp.o
+.PHONY : Models.cpp.o
+
+Models.i: Models.cpp.i
+
+.PHONY : Models.i
+
+# target to preprocess a source file
+Models.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Models.cpp.i
+.PHONY : Models.cpp.i
+
+Models.s: Models.cpp.s
+
+.PHONY : Models.s
+
+# target to generate assembly for a file
+Models.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Models.cpp.s
+.PHONY : Models.cpp.s
+
 Primitives.o: Primitives.cpp.o
 
 .PHONY : Primitives.o
@@ -273,6 +300,9 @@ help:
 	@echo "... GraphicsHandler.o"
 	@echo "... GraphicsHandler.i"
 	@echo "... GraphicsHandler.s"
+	@echo "... Models.o"
+	@echo "... Models.i"
+	@echo "... Models.s"
 	@echo "... Primitives.o"
 	@echo "... Primitives.i"
 	@echo "... Primitives.s"

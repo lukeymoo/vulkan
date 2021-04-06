@@ -111,7 +111,7 @@ void WindowHandler::go(void)
 					}
 					/*
 					** WASD & SPACE key PRESS handling
-					 */
+					*/
 					if (XLookupKeysym(&event.xkey, 0) == XK_w) {
 					}
 					if (XLookupKeysym(&event.xkey, 0) == XK_a) {

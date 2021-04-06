@@ -3,19 +3,21 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-
 GraphicsHandler::Exception::Exception(int l, std::string f, std::string description)
-  : ExceptionHandler(l, f, description) {
+    : ExceptionHandler(l, f, description)
+{
   type = "Graphics Handler Exception";
   errorDescription = description;
   return;
 }
 
-GraphicsHandler::Exception::~Exception(void) {
+GraphicsHandler::Exception::~Exception(void)
+{
   return;
 }
 
-GraphicsHandler::GraphicsHandler(Display* dsp, Window* wnd, int w, int h) {
+GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
+{
   display = dsp;
   window = wnd;
   windowWidth = w;
@@ -66,7 +68,8 @@ GraphicsHandler::GraphicsHandler(Display* dsp, Window* wnd, int w, int h) {
   return;
 }
 
-GraphicsHandler::~GraphicsHandler() {
+GraphicsHandler::~GraphicsHandler()
+{
   std::cout << "[+] Cleaning up Vulkan resources" << std::endl;
   /*
     Objects must be destroyed in FILO order
@@ -77,68 +80,87 @@ GraphicsHandler::~GraphicsHandler() {
   vkDeviceWaitIdle(m_Device);
   cleanupSwapChain();
   // Cleanup loaded textures
-  if(m_TextureSampler != VK_NULL_HANDLE) {
+  if (m_TextureSampler != VK_NULL_HANDLE)
+  {
     vkDestroySampler(m_Device, m_TextureSampler, nullptr);
   }
-  if(m_TextureImageView != VK_NULL_HANDLE) {
+  if (m_TextureImageView != VK_NULL_HANDLE)
+  {
     vkDestroyImageView(m_Device, m_TextureImageView, nullptr);
   }
-  if(m_TextureImage != VK_NULL_HANDLE) {
+  if (m_TextureImage != VK_NULL_HANDLE)
+  {
     vkDestroyImage(m_Device, m_TextureImage, nullptr);
   }
-  if(m_TextureMemory != VK_NULL_HANDLE) {
+  if (m_TextureMemory != VK_NULL_HANDLE)
+  {
     vkFreeMemory(m_Device, m_TextureMemory, nullptr);
   }
   // Bindings/layout
-  if(m_DescriptorLayout != VK_NULL_HANDLE) {
+  if (m_DescriptorLayout != VK_NULL_HANDLE)
+  {
     vkDestroyDescriptorSetLayout(m_Device, m_DescriptorLayout, nullptr);
   }
   // Cleanup buffer
-  if (m_VertexBuffer != VK_NULL_HANDLE) {
+  if (m_VertexBuffer != VK_NULL_HANDLE)
+  {
     vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
   }
   // Now release buffer memory
-  if (m_VertexMemory != VK_NULL_HANDLE) {
+  if (m_VertexMemory != VK_NULL_HANDLE)
+  {
     vkFreeMemory(m_Device, m_VertexMemory, nullptr);
   }
   // Cleanup buffer
-  if (m_IndexBuffer != VK_NULL_HANDLE) {
+  if (m_IndexBuffer != VK_NULL_HANDLE)
+  {
     vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-  // release memory
+    // release memory
   }
-  if (m_VertexMemory != VK_NULL_HANDLE) {
+  if (m_VertexMemory != VK_NULL_HANDLE)
+  {
     vkFreeMemory(m_Device, m_IndexMemory, nullptr);
   }
   // Destroy m_imageAvailableSemaphore objects
-  for (const auto& semaphore : m_imageAvailableSemaphore) {
-    if (semaphore != VK_NULL_HANDLE) {
+  for (const auto &semaphore : m_imageAvailableSemaphore)
+  {
+    if (semaphore != VK_NULL_HANDLE)
+    {
       vkDestroySemaphore(m_Device, semaphore, nullptr);
     }
   }
   // Destroy m_renderFinishedSemaphore objects
-  for (const auto& semaphore : m_renderFinishedSemaphore) {
+  for (const auto &semaphore : m_renderFinishedSemaphore)
+  {
     vkDestroySemaphore(m_Device, semaphore, nullptr);
   }
   // Destroy fence objects
-  for (const auto& fence : m_inFlightFences) {
-    if (fence != VK_NULL_HANDLE) {
+  for (const auto &fence : m_inFlightFences)
+  {
+    if (fence != VK_NULL_HANDLE)
+    {
       vkDestroyFence(m_Device, fence, nullptr);
     }
   }
   // Destroy command pool
-  if (m_CommandPool != VK_NULL_HANDLE) {
+  if (m_CommandPool != VK_NULL_HANDLE)
+  {
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
   }
-  if (m_Surface != VK_NULL_HANDLE) {
+  if (m_Surface != VK_NULL_HANDLE)
+  {
     vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
   }
-  if (m_Device != VK_NULL_HANDLE) {
+  if (m_Device != VK_NULL_HANDLE)
+  {
     vkDestroyDevice(m_Device, nullptr);
   }
-  if (m_Debug != VK_NULL_HANDLE) {
+  if (m_Debug != VK_NULL_HANDLE)
+  {
     vkDestroyDebugUtilsMessengerEXT(m_Instance, m_Debug, nullptr);
   }
-  if (m_Instance != VK_NULL_HANDLE) {
+  if (m_Instance != VK_NULL_HANDLE)
+  {
     vkDestroyInstance(m_Instance, nullptr);
   }
 
@@ -146,11 +168,13 @@ GraphicsHandler::~GraphicsHandler() {
   return;
 }
 
-void GraphicsHandler::initGraphics(void) {
+void GraphicsHandler::initGraphics(void)
+{
   /*
     Ensure all requested validation layers are supported
   */
-  if (enableValidationLayers) {
+  if (enableValidationLayers)
+  {
     std::cout << "[!] Debugging enabled" << std::endl;
 
     /*
@@ -159,9 +183,10 @@ void GraphicsHandler::initGraphics(void) {
     std::cout << "\t[+] Checking for validation layers" << std::endl;
     std::string failList;
     bool validationCheck = checkValidationLayerSupport(&failList);
-    if (!validationCheck) {
+    if (!validationCheck)
+    {
       std::string e =
-        "The following requested validation layers were not found\n";
+          "The following requested validation layers were not found\n";
       e += failList;
       G_EXCEPT(e.c_str());
     }
@@ -175,10 +200,11 @@ void GraphicsHandler::initGraphics(void) {
   bool extensionCheck = checkInstanceExtensionSupport(&failList);
 
   // check if extension check failed
-  if (!extensionCheck) {
+  if (!extensionCheck)
+  {
     // if it failed, fetch the list of failed requests and throw
     std::string e =
-      "The following requested instance extensions were not supported!\n";
+        "The following requested instance extensions were not supported!\n";
     e += failList;
     e += "\nThis can sometimes mean that Vulkan is not supported by your drivers\n";
     G_EXCEPT(e.c_str());
@@ -196,7 +222,8 @@ void GraphicsHandler::initGraphics(void) {
 /*
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
-void GraphicsHandler::initVulkan(void) {
+void GraphicsHandler::initVulkan(void)
+{
   /*
     Creates Vulkan instance and if debugging is enabled
     will load debug utility functions
@@ -210,7 +237,8 @@ void GraphicsHandler::initVulkan(void) {
     and stores as member variable of deviceInfoList[selectedIndex]
   */
   std::cout << "[+] Selecting adapter" << std::endl;
-  if (!selectAdapter()) {
+  if (!selectAdapter())
+  {
     G_EXCEPT("Failed to find a compatible device for rendering!");
   }
 
@@ -228,13 +256,13 @@ void GraphicsHandler::initVulkan(void) {
   std::cout << "[+] Creating Vulkan surface" << std::endl;
   registerSurface();
 
-
   // check for DEVICE extensions support
   std::cout << "[+] Checking for device level extension support" << std::endl;
   std::string failList;
-  if (!checkDeviceExtensionSupport(&failList)) {
+  if (!checkDeviceExtensionSupport(&failList))
+  {
     std::string e =
-      "The following requested device extensions were not supported!\n";
+        "The following requested device extensions were not supported!\n";
     e += failList;
     G_EXCEPT(e.c_str());
   }
@@ -278,9 +306,27 @@ void GraphicsHandler::initVulkan(void) {
   createCommandPool();
 
   /*
-   Creates image for loading/storing of a PNG/JPEG image for use in rendering
+    Loads specified textures and converts raw data in into
+    vulkan accessible images
+
+    CALLS -- createTextureImageView() THEN
   */
-  std::cout << "[+] Loading images" << std::endl;
+  std::cout << "[+] Loading textures" << std::endl;
+  createTextureImage();
+
+  /*
+    Creates a texture sampler that can be used for multiple images
+  */
+  std::cout << "[+] Creating sampler" << std::endl;
+  createTextureSampler();
+
+  /*
+    Create's staging buffer and loads index data into  it
+    uses vulkan transfer function to move into gpu side buffer
+
+    Only allocates space, need to be called before createVertexBuffer()
+  */
+  createIndexBuffer();
 
   /*
     Creates staging buffer and loads vertex data into it
@@ -288,12 +334,6 @@ void GraphicsHandler::initVulkan(void) {
   */
   std::cout << "[+] Loading model and transformation data" << std::endl;
   createVertexBuffer();
-
-  /*
-    Create's staging buffer and loads index data into  it
-    uses vulkan transfer function to move into gpu side buffer
-  */
-  createIndexBuffer();
 
   /*
     Create uniform buffer which will be used by shaders to
@@ -321,21 +361,6 @@ void GraphicsHandler::initVulkan(void) {
   createCommandBuffers();
 
   /*
-   Loads specified textures and converts raw data in into
-   vulkan accessible images
-
-   CALLS -- createTextureImageView() THEN
-  */
-  std::cout << "[+] Loading textures" << std::endl;
-  createTextureImage();
-
-  /*
-    Creates a texture sampler that can be used for multiple images
-  */
-  std::cout << "[+] Creating sampler" << std::endl;
-  createTextureSampler();
-
-  /*
     Used to synchronize operation
 
     So that commands are not executed when resources are not yet available
@@ -351,7 +376,8 @@ void GraphicsHandler::initVulkan(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createInstance(void) {
+void GraphicsHandler::createInstance(void)
+{
   VkResult result;
   VkApplicationInfo appInfo = {};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -364,37 +390,39 @@ void GraphicsHandler::createInstance(void) {
   // configure validation layer debugging messages
   VkDebugUtilsMessengerCreateInfoEXT debuggerSettings{};
   debuggerSettings.sType =
-    VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+      VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   debuggerSettings.pNext = nullptr;
   debuggerSettings.flags = 0;
   debuggerSettings.messageSeverity =
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
   debuggerSettings.messageType =
-    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+      VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
   debuggerSettings.pfnUserCallback = debugMessageProcessor;
   debuggerSettings.pUserData = nullptr;
-
 
   VkInstanceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pNext = &debuggerSettings;
   createInfo.flags = 0;
   createInfo.pApplicationInfo = &appInfo;
-  if (enableValidationLayers) {
+  if (enableValidationLayers)
+  {
     createInfo.enabledLayerCount =
-      static_cast<uint32_t>(requestedValidationLayers.size());
+        static_cast<uint32_t>(requestedValidationLayers.size());
 
     createInfo.ppEnabledLayerNames = requestedValidationLayers.data();
 
     createInfo.enabledExtensionCount =
-      static_cast<uint32_t>(requestedInstanceExtensions.size());
+        static_cast<uint32_t>(requestedInstanceExtensions.size());
 
     createInfo.ppEnabledExtensionNames = requestedInstanceExtensions.data();
-  } else {
+  }
+  else
+  {
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
     createInfo.enabledExtensionCount = 0;
@@ -403,7 +431,10 @@ void GraphicsHandler::createInstance(void) {
 
   // Create Vulkan instance and store in m_Instance -- private member
   result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create Vulkan instance!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create Vulkan instance!");
+  }
 
   // we need to load debug utilities manually
   loadDebugUtils();
@@ -412,7 +443,10 @@ void GraphicsHandler::createInstance(void) {
                                           &debuggerSettings,
                                           nullptr,
                                           &m_Debug);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create debug messenger"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create debug messenger");
+  }
 
   return;
 }
@@ -425,14 +459,19 @@ void GraphicsHandler::createInstance(void) {
 // sets `selectedIndex` to be the highest rated device
 // `selectedIndex` is used to identify which
 // device in vector deviceInfoList was selected
-bool GraphicsHandler::selectAdapter(void) {
+bool GraphicsHandler::selectAdapter(void)
+{
   VkResult result;
 
   // Enumerate devices and find Vulkan support
   result = vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failure enumerating devices!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failure enumerating devices!");
+  }
 
-  if (deviceCount == 0) {
+  if (deviceCount == 0)
+  {
     G_EXCEPT("No devices found with Vulkan support!");
   }
 
@@ -440,19 +479,24 @@ bool GraphicsHandler::selectAdapter(void) {
   deviceInfoList.resize(deviceCount);
 
   // Now we can fetch all the devices we found
-  std::vector< VkPhysicalDevice> tempContainer(deviceCount);
+  std::vector<VkPhysicalDevice> tempContainer(deviceCount);
   result = vkEnumeratePhysicalDevices(m_Instance,
                                       &deviceCount,
                                       tempContainer.data());
-  if (result != VK_SUCCESS) { G_EXCEPT("Failure fetching physical devices!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failure fetching physical devices!");
+  }
 
   // place the devices found in our custom structure
-  for (size_t i = 0; i < deviceInfoList.size(); i++) {
+  for (size_t i = 0; i < deviceInfoList.size(); i++)
+  {
     deviceInfoList.at(i).devHandle = tempContainer.at(i);
   }
 
   // iterate each device found
-  for (size_t i = 0; i < deviceInfoList.size(); i++) {
+  for (size_t i = 0; i < deviceInfoList.size(); i++)
+  {
     /*
       CLEAR THE STRUCTURES TO AVOID BAD DATA FROM UNINITIALIZATION
     */
@@ -472,82 +516,89 @@ bool GraphicsHandler::selectAdapter(void) {
       m_PhysicalDevice can be used after rateDevice() has been successfully called
     */
     vkGetPhysicalDeviceProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      &deviceInfoList.at(i).devProperties);
+        deviceInfoList.at(selectedIndex).devHandle,
+        &deviceInfoList.at(i).devProperties);
 
     vkGetPhysicalDeviceFeatures(
-      deviceInfoList.at(selectedIndex).devHandle,
-      &deviceInfoList.at(i).devFeatures);
+        deviceInfoList.at(selectedIndex).devHandle,
+        &deviceInfoList.at(i).devFeatures);
 
     // Check if dedicated gpu
     if (deviceInfoList.at(i).devProperties.deviceType ==
-        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+    {
       deviceInfoList.at(i).rating += 1000;
     }
 
     // add max image dimension to rating
     deviceInfoList.at(i).rating +=
-      deviceInfoList.at(i).devProperties.limits.maxImageDimension2D;
+        deviceInfoList.at(i).devProperties.limits.maxImageDimension2D;
 
     // get supported queue families
     vkGetPhysicalDeviceQueueFamilyProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      &deviceInfoList.at(i).queueFamilyCount,
-      nullptr);
+        deviceInfoList.at(selectedIndex).devHandle,
+        &deviceInfoList.at(i).queueFamilyCount,
+        nullptr);
     // ensure this device supports at least 1 queue
-    if (deviceInfoList.at(i).queueFamilyCount == 0) {
+    if (deviceInfoList.at(i).queueFamilyCount == 0)
+    {
       deviceInfoList.at(i).rating = 0;
       continue;
     }
 
     // resize queue storage
     deviceInfoList.at(i).queueFamiles.resize(
-      deviceInfoList.at(i).queueFamilyCount);
+        deviceInfoList.at(i).queueFamilyCount);
     // fetch all the queues and place into our custom struct
     vkGetPhysicalDeviceQueueFamilyProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      &deviceInfoList.at(i).queueFamilyCount,
-      deviceInfoList.at(i).queueFamiles.data());
-
+        deviceInfoList.at(selectedIndex).devHandle,
+        &deviceInfoList.at(i).queueFamilyCount,
+        deviceInfoList.at(i).queueFamiles.data());
 
     // ensure device supports VK_QUEUE_GRAPHICS_BIT
     bool hasGraphics = false;
 
-    for (size_t j = 0; j < deviceInfoList.at(i).queueFamiles.size(); j++) {
+    for (size_t j = 0; j < deviceInfoList.at(i).queueFamiles.size(); j++)
+    {
       if (deviceInfoList.at(i).queueFamiles.at(j).queueFlags &
-          VK_QUEUE_GRAPHICS_BIT) {
+          VK_QUEUE_GRAPHICS_BIT)
+      {
         // device supports graphics
         hasGraphics = true;
         deviceInfoList.at(i).graphicsFamilyIndex = j;
       }
     }
     // ensure it supports Graphics queue
-    if (!hasGraphics) {
+    if (!hasGraphics)
+    {
       deviceInfoList.at(i).rating = 0;
       continue;
     }
 
     // Ensure it has shaders
-    if (!deviceInfoList.at(i).devFeatures.geometryShader) {
+    if (!deviceInfoList.at(i).devFeatures.geometryShader)
+    {
       deviceInfoList.at(i).rating = 0;
       continue;
     }
   }
 
-
   // -- SELECTION --
   // iterate deviceAndScore, select highest one
   // start with first device and move on
   selectedIndex = 0;
-  for (size_t i = 0; i < deviceInfoList.size(); i++) {
+  for (size_t i = 0; i < deviceInfoList.size(); i++)
+  {
     // if current index is higher than selected index, select new index
-    if (deviceInfoList.at(i).rating > deviceInfoList.at(selectedIndex).rating) {
+    if (deviceInfoList.at(i).rating > deviceInfoList.at(selectedIndex).rating)
+    {
       selectedIndex = i;
     }
   }
 
   // double check our rating before returning
-  if (deviceInfoList.at(selectedIndex).rating == 0) {
+  if (deviceInfoList.at(selectedIndex).rating == 0)
+  {
     // failed to find worthy device
     return false;
   }
@@ -559,7 +610,8 @@ bool GraphicsHandler::selectAdapter(void) {
 */
 
 // Creates surface from window system(winapi on windows)
-void GraphicsHandler::registerSurface(void) {
+void GraphicsHandler::registerSurface(void)
+{
   VkResult result;
 
   // describe surface creation parameters
@@ -572,7 +624,10 @@ void GraphicsHandler::registerSurface(void) {
 
   // Create window surface
   result = vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create window surface!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create window surface!");
+  }
 
   // describe creation of graphics queue
   VkDeviceQueueCreateInfo graphicsQueueCreateInfo{};
@@ -580,7 +635,7 @@ void GraphicsHandler::registerSurface(void) {
   graphicsQueueCreateInfo.pNext = nullptr;
   graphicsQueueCreateInfo.flags = 0;
   graphicsQueueCreateInfo.queueFamilyIndex =
-    deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
   graphicsQueueCreateInfo.queueCount = 1;
   graphicsQueueCreateInfo.pQueuePriorities = &queuePrio;
 
@@ -590,17 +645,21 @@ void GraphicsHandler::registerSurface(void) {
   // check if the earlier fetched queue family supports presentation
   VkBool32 hasPresentSupport = false;
   result = vkGetPhysicalDeviceSurfaceSupportKHR(
-    m_PhysicalDevice,
-    deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
-    m_Surface, &hasPresentSupport);
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
+      m_Surface, &hasPresentSupport);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failure checking for presentation support!");
   }
 
-  if (hasPresentSupport) {
+  if (hasPresentSupport)
+  {
     deviceInfoList.at(selectedIndex).presentFamilyIndex =
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
-  } else {
+        deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+  }
+  else
+  {
     // selected device's graphics queue does not have present support
     // maybe look for another queue
     G_EXCEPT("Selected device does not support presentation!");
@@ -609,14 +668,15 @@ void GraphicsHandler::registerSurface(void) {
   // if graphics queue and present queue
   // do NOT share an index, create present queue
   if (deviceInfoList.at(selectedIndex).graphicsFamilyIndex !=
-      deviceInfoList.at(selectedIndex).presentFamilyIndex) {
+      deviceInfoList.at(selectedIndex).presentFamilyIndex)
+  {
     // describe creation of presentation queue
     VkDeviceQueueCreateInfo presentQueueCreateInfo{};
     presentQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     presentQueueCreateInfo.pNext = nullptr;
     presentQueueCreateInfo.flags = 0;
     presentQueueCreateInfo.queueFamilyIndex =
-      deviceInfoList.at(selectedIndex).presentFamilyIndex;
+        deviceInfoList.at(selectedIndex).presentFamilyIndex;
     presentQueueCreateInfo.queueCount = 1;
     presentQueueCreateInfo.pQueuePriorities = &queuePrio;
 
@@ -631,7 +691,8 @@ void GraphicsHandler::registerSurface(void) {
   m_SurfaceDetails = querySwapChainSupport();
 
   if (m_SurfaceDetails.formats.empty() ||
-      m_SurfaceDetails.presentModes.empty()) {
+      m_SurfaceDetails.presentModes.empty())
+  {
     G_EXCEPT("Selected device does not support any presents/formats");
   }
 
@@ -642,7 +703,8 @@ void GraphicsHandler::registerSurface(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createLogicalDeviceAndQueues(void) {
+void GraphicsHandler::createLogicalDeviceAndQueues(void)
+{
   VkResult result;
 
   // logical device creation needs to occur
@@ -652,27 +714,29 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void) {
   VkDeviceCreateInfo logicalDeviceCreateInfo{};
   logicalDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   logicalDeviceCreateInfo.pQueueCreateInfos =
-    queueCreateInfos.data();  // -- pass here
+      queueCreateInfos.data(); // -- pass here
   logicalDeviceCreateInfo.queueCreateInfoCount =
-    static_cast<uint32_t>(queueCreateInfos.size());
+      static_cast<uint32_t>(queueCreateInfos.size());
   logicalDeviceCreateInfo.pEnabledFeatures =
-    &deviceInfoList.at(selectedIndex).devFeatures;
+      &deviceInfoList.at(selectedIndex).devFeatures;
   // device level layers deprecated
   logicalDeviceCreateInfo.enabledLayerCount = 0;
   // device level layers deprecated
   logicalDeviceCreateInfo.ppEnabledLayerNames = nullptr;
   logicalDeviceCreateInfo.enabledExtensionCount =
-    static_cast<uint32_t>(requestedDeviceExtensions.size());
+      static_cast<uint32_t>(requestedDeviceExtensions.size());
   logicalDeviceCreateInfo.ppEnabledExtensionNames =
-    requestedDeviceExtensions.data();
-
+      requestedDeviceExtensions.data();
 
   // Create logical device
   result = vkCreateDevice(m_PhysicalDevice,
                           &logicalDeviceCreateInfo,
                           nullptr,
                           &m_Device);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create logical device!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create logical device!");
+  }
 
   // Retrieve the Graphics queue from newly created logical device
   vkGetDeviceQueue(m_Device,
@@ -684,18 +748,22 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void) {
   // an index before requesting both
   // if not request present queue seperately
   if (deviceInfoList.at(selectedIndex).graphicsFamilyIndex !=
-      deviceInfoList.at(selectedIndex).presentFamilyIndex) {
+      deviceInfoList.at(selectedIndex).presentFamilyIndex)
+  {
     vkGetDeviceQueue(m_Device,
                      deviceInfoList.at(selectedIndex).presentFamilyIndex,
                      0,
                      &m_PresentQueue);
-  } else {
+  }
+  else
+  {
     // since the indexes are the same we will point present queue to graphics
     m_PresentQueue = m_GraphicsQueue;
   }
 
   // Ensure we retrieved the queue
-  if (!m_GraphicsQueue) {
+  if (!m_GraphicsQueue)
+  {
     G_EXCEPT("Failed to retrieve handle to graphics command queue");
   }
   return;
@@ -705,7 +773,8 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createSwapChain(void) {
+void GraphicsHandler::createSwapChain(void)
+{
   VkResult result;
 
   /*
@@ -725,7 +794,8 @@ void GraphicsHandler::createSwapChain(void) {
 
   // double check we did not exceed max image count
   if (m_SurfaceDetails.capabilities.maxImageCount > 0 &&
-      imageCount > m_SurfaceDetails.capabilities.maxImageCount) {
+      imageCount > m_SurfaceDetails.capabilities.maxImageCount)
+  {
     imageCount = m_SurfaceDetails.capabilities.maxImageCount;
   }
 
@@ -750,21 +820,23 @@ void GraphicsHandler::createSwapChain(void) {
     be sharing images here
   */
   if (deviceInfoList.at(selectedIndex).presentFamilyIndex ==
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex) {
+      deviceInfoList.at(selectedIndex).graphicsFamilyIndex)
+  {
     swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapChainCreateInfo.queueFamilyIndexCount = 0;
     swapChainCreateInfo.pQueueFamilyIndices = nullptr;
-  } else {
+  }
+  else
+  {
     uint32_t queueIndices[] = {
-    deviceInfoList.at(selectedIndex).presentFamilyIndex,
-    deviceInfoList.at(selectedIndex).graphicsFamilyIndex
-  };
+        deviceInfoList.at(selectedIndex).presentFamilyIndex,
+        deviceInfoList.at(selectedIndex).graphicsFamilyIndex};
     swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     swapChainCreateInfo.queueFamilyIndexCount = 2;
     swapChainCreateInfo.pQueueFamilyIndices = queueIndices;
   }
   swapChainCreateInfo.preTransform =
-    m_SurfaceDetails.capabilities.currentTransform;
+      m_SurfaceDetails.capabilities.currentTransform;
   swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   swapChainCreateInfo.presentMode = swapPresentMode;
   swapChainCreateInfo.clipped = VK_TRUE;
@@ -775,22 +847,28 @@ void GraphicsHandler::createSwapChain(void) {
                                 &swapChainCreateInfo,
                                 nullptr,
                                 &m_Swap);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create swap chain!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create swap chain!");
+  }
 
   // retrieve swap chain images that were created
   // could be higher than our specified amount in `minImageCount`
-
 
   uint32_t swapImageCount = 0;
 
   // get count of images
   result = vkGetSwapchainImagesKHR(m_Device, m_Swap, &swapImageCount, nullptr);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Error getting count of swap chain images");
   }
 
   // ensure non zero
-  if (swapImageCount == 0) { G_EXCEPT("Swapchain did not create any images!"); }
+  if (swapImageCount == 0)
+  {
+    G_EXCEPT("Swapchain did not create any images!");
+  }
 
   // get handles of images for purposes of creating views for them
   m_SwapImages.resize(swapImageCount);
@@ -798,14 +876,16 @@ void GraphicsHandler::createSwapChain(void) {
                                    m_Swap,
                                    &swapImageCount,
                                    m_SwapImages.data());
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Error getting swap chain image handles!");
   }
 
   // resize views container to be the same as swap images container
   m_SwapViews.resize(swapImageCount);
 
-  for (size_t i = 0; i < m_SwapImages.size(); i++) {
+  for (size_t i = 0; i < m_SwapImages.size(); i++)
+  {
     m_SwapViews[i] = createImageView(m_SwapImages[i], selectedSwapFormat.format);
   }
 
@@ -815,10 +895,11 @@ void GraphicsHandler::createSwapChain(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createDescriptorSetLayout(void) {
+void GraphicsHandler::createDescriptorSetLayout(void)
+{
   VkResult result;
 
-  // Describe descriptor binding
+  // Binding for matrix transformations data
   VkDescriptorSetLayoutBinding uboBindingInfo{};
   uboBindingInfo.binding = 0;
   uboBindingInfo.descriptorCount = 1;
@@ -828,15 +909,29 @@ void GraphicsHandler::createDescriptorSetLayout(void) {
   // Only relevant for image sampling related bindings
   uboBindingInfo.pImmutableSamplers = nullptr;
 
+  VkDescriptorSetLayoutBinding samplerBinding{};
+  samplerBinding.binding = 1;
+  samplerBinding.descriptorCount = 1;
+  samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  samplerBinding.pImmutableSamplers = nullptr;
+
+  // Container for bindings pointed to in layout description
+  std::array<VkDescriptorSetLayoutBinding, 2> allBindings = {uboBindingInfo, samplerBinding};
+
+  // Describe creation of layout
   VkDescriptorSetLayoutCreateInfo uboLayoutInfo{};
   uboLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   uboLayoutInfo.pNext = nullptr;
   uboLayoutInfo.flags = 0;
-  uboLayoutInfo.bindingCount = 1;
-  uboLayoutInfo.pBindings = &uboBindingInfo;
+  uboLayoutInfo.bindingCount = static_cast<uint32_t>(allBindings.size());
+  uboLayoutInfo.pBindings = allBindings.data();
 
   result = vkCreateDescriptorSetLayout(m_Device, &uboLayoutInfo, nullptr, &m_DescriptorLayout);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create uniform buffer descriptor layout"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create uniform buffer descriptor layout");
+  }
   return;
 }
 
@@ -844,17 +939,20 @@ void GraphicsHandler::createDescriptorSetLayout(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createGraphicsPipeline(void) {
+void GraphicsHandler::createGraphicsPipeline(void)
+{
   VkResult result;
 
   auto vertexShader = readFile("shaders/vert.spv");
   auto fragShader = readFile("shaders/frag.spv");
 
   // ensure buffers not empty
-  if (vertexShader.empty()) {
+  if (vertexShader.empty())
+  {
     G_EXCEPT("Failed to load vertex shader!");
   }
-  if (vertexShader.empty()) {
+  if (vertexShader.empty())
+  {
     G_EXCEPT("Failed to load fragment shader!");
   }
 
@@ -871,7 +969,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // describe vertex shader stage
   VkPipelineShaderStageCreateInfo vertexShaderStageInfo{};
   vertexShaderStageInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   vertexShaderStageInfo.pNext = nullptr;
   vertexShaderStageInfo.flags = 0;
   vertexShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -882,7 +980,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // describe fragment shader stage
   VkPipelineShaderStageCreateInfo fragmentShaderStageInfo{};
   fragmentShaderStageInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   fragmentShaderStageInfo.pNext = nullptr;
   fragmentShaderStageInfo.flags = 0;
   fragmentShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -890,12 +988,9 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   fragmentShaderStageInfo.pName = "main";
   fragmentShaderStageInfo.pSpecializationInfo = nullptr;
 
-
   // store creation descriptions in array
   VkPipelineShaderStageCreateInfo pipelineStages[] = {
-  vertexShaderStageInfo, fragmentShaderStageInfo
-};
-
+      vertexShaderStageInfo, fragmentShaderStageInfo};
 
   // describe creation of vertex input stage
   auto bindingDescription = Vertex::getBindingDescription();
@@ -903,19 +998,19 @@ void GraphicsHandler::createGraphicsPipeline(void) {
 
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertexInputInfo.pNext = nullptr;
   vertexInputInfo.flags = 0;
   vertexInputInfo.vertexBindingDescriptionCount = 1;
   vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
   vertexInputInfo.vertexAttributeDescriptionCount =
-    static_cast<uint32_t>(attributeDescription.size());
+      static_cast<uint32_t>(attributeDescription.size());
   vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
   // describe the type of geometry vulkan will be drawing
   VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
   inputAssemblyInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
   inputAssemblyInfo.pNext = nullptr;
   inputAssemblyInfo.flags = 0;
   inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -926,22 +1021,22 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   viewport.x = 0;
   viewport.y = 0;
   viewport.width =
-    static_cast<float>(selectedSwapExtent.width);
+      static_cast<float>(selectedSwapExtent.width);
   viewport.height =
-    static_cast<float>(selectedSwapExtent.height);
+      static_cast<float>(selectedSwapExtent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
   // configure scissor ( what portion of framebuffer to send to output merger )
   // use entire frame buffer
   VkRect2D scissor{};
-  scissor.offset = { 0, 0 };
+  scissor.offset = {0, 0};
   scissor.extent = selectedSwapExtent;
 
   // combine viewport and scissor into a vulkan viewport state
   VkPipelineViewportStateCreateInfo viewportStateInfo{};
   viewportStateInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportStateInfo.pNext = nullptr;
   viewportStateInfo.flags = 0;
   viewportStateInfo.viewportCount = 1;
@@ -970,7 +1065,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // configure multisampling
   VkPipelineMultisampleStateCreateInfo multisamplingInfo{};
   multisamplingInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisamplingInfo.pNext = nullptr;
   multisamplingInfo.flags = 0;
   multisamplingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -983,7 +1078,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   // configure depth/stencil testing
   VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
   depthStencilInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depthStencilInfo.pNext = nullptr;
   depthStencilInfo.flags = 0;
   depthStencilInfo.depthTestEnable = VK_TRUE;
@@ -1000,22 +1095,21 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   colorBlendAttachmentInfo.blendEnable = VK_TRUE;
   colorBlendAttachmentInfo.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
   colorBlendAttachmentInfo.dstColorBlendFactor =
-    VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+      VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
   colorBlendAttachmentInfo.colorBlendOp = VK_BLEND_OP_ADD;
   colorBlendAttachmentInfo.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
   colorBlendAttachmentInfo.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
   colorBlendAttachmentInfo.alphaBlendOp = VK_BLEND_OP_ADD;
   colorBlendAttachmentInfo.colorWriteMask =
-    VK_COLOR_COMPONENT_R_BIT |
-    VK_COLOR_COMPONENT_G_BIT |
-    VK_COLOR_COMPONENT_B_BIT |
-    VK_COLOR_COMPONENT_A_BIT;
-
+      VK_COLOR_COMPONENT_R_BIT |
+      VK_COLOR_COMPONENT_G_BIT |
+      VK_COLOR_COMPONENT_B_BIT |
+      VK_COLOR_COMPONENT_A_BIT;
 
   // global color blending constants
   VkPipelineColorBlendStateCreateInfo colorBlendingInfo{};
   colorBlendingInfo.sType =
-    VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   colorBlendingInfo.pNext = nullptr;
   colorBlendingInfo.flags = 0;
   colorBlendingInfo.logicOpEnable = VK_FALSE;
@@ -1042,7 +1136,10 @@ void GraphicsHandler::createGraphicsPipeline(void) {
                                   &pipelineLayoutInfo,
                                   nullptr,
                                   &m_PipelineLayout);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create pipeline layout!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create pipeline layout!");
+  }
 
   // defines render pass behavior
   createRenderPass();
@@ -1065,7 +1162,7 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   pipelineInfo.pDynamicState = nullptr;
   pipelineInfo.layout = m_PipelineLayout;
   pipelineInfo.renderPass = m_RenderPass;
-  pipelineInfo.subpass = 0;  // sub pass index
+  pipelineInfo.subpass = 0; // sub pass index
   pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
   pipelineInfo.basePipelineIndex = -1;
 
@@ -1075,10 +1172,10 @@ void GraphicsHandler::createGraphicsPipeline(void) {
                                      &pipelineInfo,
                                      nullptr,
                                      &m_Pipeline);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to create graphics pipeline object!");
   }
-
 
   vkDestroyShaderModule(m_Device, vertexModule, nullptr);
   vkDestroyShaderModule(m_Device, fragModule, nullptr);
@@ -1089,7 +1186,8 @@ void GraphicsHandler::createGraphicsPipeline(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createRenderPass(void) {
+void GraphicsHandler::createRenderPass(void)
+{
   VkResult result;
 
   VkAttachmentDescription colorAttachment{};
@@ -1151,7 +1249,8 @@ void GraphicsHandler::createRenderPass(void) {
 
   // create render pass
   result = vkCreateRenderPass(m_Device, &renderInfo, nullptr, &m_RenderPass);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to create render pass object!");
   }
 
@@ -1162,17 +1261,18 @@ void GraphicsHandler::createRenderPass(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createFrameBuffers(void) {
+void GraphicsHandler::createFrameBuffers(void)
+{
   VkResult result;
 
   // resize framebuffers to have enough for each swapchain image views
   m_Framebuffers.resize(m_SwapViews.size());
 
   // iterate each swap chain image and create frame buffer for its
-  for (size_t i = 0; i < m_SwapViews.size(); i++) {
+  for (size_t i = 0; i < m_SwapViews.size(); i++)
+  {
     VkImageView attachments[] = {
-    m_SwapViews[i]
-  };
+        m_SwapViews[i]};
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.pNext = nullptr;
@@ -1188,7 +1288,8 @@ void GraphicsHandler::createFrameBuffers(void) {
                                  &framebufferInfo,
                                  nullptr,
                                  &m_Framebuffers[i]);
-    if (result != VK_SUCCESS) {
+    if (result != VK_SUCCESS)
+    {
       G_EXCEPT("Failed to create frame buffer for image view");
     }
   }
@@ -1200,34 +1301,41 @@ void GraphicsHandler::createFrameBuffers(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createTextureImage(void) {
+void GraphicsHandler::createTextureImage(void)
+{
+  VkResult result;
   int textureWidth;
   int textureHeight;
   int textureChannels;
 
   // Load our image
-  stbi_uc* pixels = stbi_load("textures/statue.jpg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+  stbi_uc *pixels = stbi_load("textures/statue.jpg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
 
   // Create a buffer
   VkDeviceSize imageSize = textureWidth * textureHeight * 4;
 
-  if(!pixels) {
+  if (!pixels)
+  {
     G_EXCEPT("Failed to load textures!");
   }
 
   // Create staging buffer to temporarily store our texture
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingMemory;
+  VkBuffer stagingBuffer{};
+  VkDeviceMemory stagingMemory{};
 
   createBuffer(imageSize,
                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               &stagingBuffer,
-               &stagingMemory);
+               stagingBuffer,
+               stagingMemory);
 
   // Move our pixel data into the staging buffer
-  void* data;
-  vkMapMemory(m_Device, stagingMemory, 0, imageSize, 0, &data);
+  void *data;
+  result = vkMapMemory(m_Device, stagingMemory, 0, imageSize, 0, &data);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to map memory creating texture image");
+  }
   memcpy(data, pixels, static_cast<size_t>(imageSize));
   vkUnmapMemory(m_Device, stagingMemory);
 
@@ -1239,14 +1347,14 @@ void GraphicsHandler::createTextureImage(void) {
   // -- Before the transfer we need to transition the image layout
   // using a barrier
   createImage(
-    textureWidth,
-    textureHeight,
-    VK_FORMAT_R8G8B8A8_SRGB,
-    VK_IMAGE_TILING_OPTIMAL,
-    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    m_TextureImage,
-    m_TextureMemory);
+      textureWidth,
+      textureHeight,
+      VK_FORMAT_R8G8B8A8_SRGB,
+      VK_IMAGE_TILING_OPTIMAL,
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      m_TextureImage,
+      m_TextureMemory);
 
   // transition the image to receive the data
   // oldLayout => UNDEFINED as our createImage() uses this flag
@@ -1285,7 +1393,8 @@ void GraphicsHandler::createTextureImage(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createTextureImageView(void) {
+void GraphicsHandler::createTextureImageView(void)
+{
   m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
   return;
 }
@@ -1294,7 +1403,8 @@ void GraphicsHandler::createTextureImageView(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createTextureSampler(void) {
+void GraphicsHandler::createTextureSampler(void)
+{
   VkResult result;
 
   VkSamplerCreateInfo samplerInfo{};
@@ -1309,9 +1419,9 @@ void GraphicsHandler::createTextureSampler(void) {
   samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
   samplerInfo.mipLodBias = 0;
   samplerInfo.anisotropyEnable =
-    (deviceInfoList.at(selectedIndex).devFeatures.samplerAnisotropy) ? VK_TRUE : VK_FALSE;
+      (deviceInfoList.at(selectedIndex).devFeatures.samplerAnisotropy) ? VK_TRUE : VK_FALSE;
   samplerInfo.maxAnisotropy =
-    deviceInfoList.at(selectedIndex).devProperties.limits.maxSamplerAnisotropy;
+      deviceInfoList.at(selectedIndex).devProperties.limits.maxSamplerAnisotropy;
   samplerInfo.compareEnable = VK_FALSE;
   samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
   samplerInfo.minLod = 0.0f;
@@ -1320,7 +1430,10 @@ void GraphicsHandler::createTextureSampler(void) {
   samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
   result = vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create texture sampler"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create texture sampler");
+  }
   return;
 }
 
@@ -1328,22 +1441,24 @@ void GraphicsHandler::createTextureSampler(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createCommandPool(void) {
+void GraphicsHandler::createCommandPool(void)
+{
   VkResult result;
 
   VkCommandPoolCreateInfo commandPoolInfo{};
   commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   commandPoolInfo.pNext = nullptr;
-  commandPoolInfo.flags = 0;  // lookup flags for better control
+  commandPoolInfo.flags = 0; // lookup flags for better control
   // configure command pool to store graphics commands
   commandPoolInfo.queueFamilyIndex =
-    deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
 
   result = vkCreateCommandPool(m_Device,
                                &commandPoolInfo,
                                nullptr,
                                &m_CommandPool);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to create graphics command pool");
   }
 
@@ -1354,40 +1469,41 @@ void GraphicsHandler::createCommandPool(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createVertexBuffer(void) {
-  VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+void GraphicsHandler::createVertexBuffer(void)
+{
+  VkDeviceSize bufferSize = VERTEX_BUFFER_SIZE;
 
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
-
-  // Create staging buffer & memory
+// Create gpu local buffer
+#ifndef NDEBUG
+  std::cout << "[+] Allocating " << VERTEX_BUFFER_SIZE
+            << " bytes for vertex data" << std::endl;
+#endif
   createBuffer(
-    bufferSize,
-    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    &stagingBuffer,
-    &stagingBufferMemory);
+      bufferSize,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      m_VertexBuffer,
+      m_VertexMemory);
 
-  // Load staging buffer with vertex data
-  void* data;
-  vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-  memcpy(data, vertices.data(), (size_t)bufferSize);
-  vkUnmapMemory(m_Device, stagingBufferMemory);
+  // Now that the buffer is created call each model type's loader
+  std::pair<int, int> prevBufferOffsets = {0, 0};
+  std::pair<int, int> nextBufferOffsets = {0, 0};
+  nextBufferOffsets = Human.loadModelData(prevBufferOffsets, "Human");
+  if (nextBufferOffsets.first == -1 ||
+      nextBufferOffsets.second == -1)
+  {
+    G_EXCEPT("Model data would exceed allocated buffer limits!");
+  }
 
-  // Create gpu local buffer
-  createBuffer(
-    bufferSize,
-    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    &m_VertexBuffer,
-    &m_VertexMemory);
+  // After all model data is loaded we will pass those to an actual buffer
+  processModelData(&Human);
 
   // Now copy staging buffer data -> gpu local vertex buffer
-  copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+  //  copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
 
-  // After copy, cleanup staging buffer
-  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-  vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+  //  // After copy, cleanup staging buffer
+  //  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+  //  vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
   return;
 }
 
@@ -1396,40 +1512,19 @@ void GraphicsHandler::createVertexBuffer(void) {
 */
 
 // Creates index buffer and loads with data via a staging buffer
-void GraphicsHandler::createIndexBuffer(void) {
+void GraphicsHandler::createIndexBuffer(void)
+{
   // Index buffer size
-  VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-
-  // Create staging buffer
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
-  createBuffer(bufferSize,
-               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               &stagingBuffer,
-               &stagingBufferMemory);
-
-  // Map index data to staging buffer
-  void* data;
-  vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-  memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-  vkUnmapMemory(m_Device, stagingBufferMemory);
+  VkDeviceSize bufferSize = INDEX_BUFFER_SIZE;
 
   // Create the gpu local buffer and copy our staging buffer to it
   createBuffer(
-    bufferSize,
-    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    &m_IndexBuffer,
-    &m_IndexMemory);
-  // Now we copy our stage buffer over
-  copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+      bufferSize,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      m_IndexBuffer,
+      m_IndexMemory);
 
-  // Free up our temporary resources
-  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-  vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
   return;
 }
 
@@ -1437,7 +1532,8 @@ void GraphicsHandler::createIndexBuffer(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createUniformBuffer(void) {
+void GraphicsHandler::createUniformBuffer(void)
+{
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
   // Resize vector for per swap image creation
@@ -1445,13 +1541,14 @@ void GraphicsHandler::createUniformBuffer(void) {
   m_UniformMemory.resize(m_SwapImages.size());
 
   // Create buffer for each image
-  for(size_t i = 0; i < m_UniformBuffers.size(); i++) {
+  for (size_t i = 0; i < m_UniformBuffers.size(); i++)
+  {
     createBuffer(
-      bufferSize,
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      &m_UniformBuffers[i],
-      &m_UniformMemory[i]);
+        bufferSize,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        m_UniformBuffers[i],
+        m_UniformMemory[i]);
   }
 
   return;
@@ -1461,26 +1558,37 @@ void GraphicsHandler::createUniformBuffer(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createDescriptorPool(void) {
+void GraphicsHandler::createDescriptorPool(void)
+{
   VkResult result;
-  
-  VkDescriptorPoolSize poolSize{};
-  poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+  VkDescriptorPoolSize uniformBufferPool{};
+  uniformBufferPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   // We allocate a pool for each frame
-  poolSize.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+  uniformBufferPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+
+  VkDescriptorPoolSize imageSamplerPool{};
+  imageSamplerPool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  imageSamplerPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+
+  // Container for the pool size structs
+  std::array<VkDescriptorPoolSize, 2> poolDescriptors = {uniformBufferPool, imageSamplerPool};
 
   VkDescriptorPoolCreateInfo poolInfo{};
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.pNext = nullptr;
-  poolInfo.flags = 0;  // Optional flag for allowing freeing after creation
-  poolInfo.poolSizeCount = 1;
-  poolInfo.pPoolSizes = &poolSize;
+  poolInfo.flags = 0; // Optional flag for allowing freeing after creation
+  poolInfo.poolSizeCount = static_cast<uint32_t>(poolDescriptors.size());
+  poolInfo.pPoolSizes = poolDescriptors.data();
   // maximum number of sets that can be allocated
   poolInfo.maxSets = static_cast<uint32_t>(m_SwapImages.size());
 
   // Create the descriptor pool
   result = vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create descriptor pool"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create descriptor pool");
+  }
   return;
 }
 
@@ -1488,11 +1596,12 @@ void GraphicsHandler::createDescriptorPool(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createDescriptorSets(void) {
+void GraphicsHandler::createDescriptorSets(void)
+{
   VkResult result;
 
   std::vector<VkDescriptorSetLayout>
-    layouts(m_SwapImages.size(), m_DescriptorLayout);
+      layouts(m_SwapImages.size(), m_DescriptorLayout);
 
   // Describe the allocation of descriptor sets
   VkDescriptorSetAllocateInfo allocInfo{};
@@ -1506,32 +1615,60 @@ void GraphicsHandler::createDescriptorSets(void) {
   m_DescriptorSets.resize(m_SwapImages.size());
   // Allocate sets
   result = vkAllocateDescriptorSets(m_Device, &allocInfo, m_DescriptorSets.data());
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to allocate descriptor sets"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to allocate descriptor sets");
+  }
 
   // Populate the descriptor sets
   // This is where the uniform buffers are binded to the descriptor sets
-  for(size_t i = 0; i < m_SwapImages.size(); i++) {
+  for (size_t i = 0; i < m_SwapImages.size(); i++)
+  {
+    // Each descriptor info needs it's own descriptor set
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = m_UniformBuffers[i];
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(UniformBufferObject);
 
-    VkWriteDescriptorSet writeInfo{};
-    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeInfo.dstSet = m_DescriptorSets[i];
-    writeInfo.dstBinding = 0;
-    writeInfo.dstArrayElement = 0;
-    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeInfo.descriptorCount = 1;
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.sampler = m_TextureSampler;
+    imageInfo.imageView = m_TextureImageView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    // Descriptor writes container
+    std::array<VkWriteDescriptorSet, 2> descriptorSets{};
+
+    // Describe DescriptorWrites for uniform buffer object
+    descriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorSets[0].dstSet = m_DescriptorSets[i];
+    descriptorSets[0].dstBinding = 0;
+    descriptorSets[0].dstArrayElement = 0;
+    descriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSets[0].descriptorCount = 1;
     // Depending on the type of descriptors we are creating
     // We are making buffer descriptors so we use pBufferInfo
-    writeInfo.pBufferInfo = &bufferInfo;
-    writeInfo.pImageInfo = nullptr;
-    writeInfo.pTexelBufferView = nullptr;
+    descriptorSets[0].pBufferInfo = &bufferInfo;
+    descriptorSets[0].pImageInfo = nullptr;
+    descriptorSets[0].pTexelBufferView = nullptr;
+
+    // Here we describe the DescriptorWrite for the image sampler
+    descriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorSets[1].dstSet = m_DescriptorSets[i];
+    descriptorSets[1].dstBinding = 1;
+    descriptorSets[1].dstArrayElement = 0;
+    descriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorSets[1].descriptorCount = 1;
+    // Image sampler so we attach buffer info there
+    descriptorSets[1].pBufferInfo = nullptr;
+    descriptorSets[1].pImageInfo = &imageInfo;
+    descriptorSets[1].pTexelBufferView = nullptr;
 
     // Update the descriptor set specified in writeInfo
-    vkUpdateDescriptorSets(m_Device, 1, &writeInfo, 0, nullptr);
+    vkUpdateDescriptorSets(m_Device,
+                           static_cast<uint32_t>(descriptorSets.size()),
+                           descriptorSets.data(),
+                           0,
+                           nullptr);
   }
 
   return;
@@ -1541,7 +1678,8 @@ void GraphicsHandler::createDescriptorSets(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createCommandBuffers(void) {
+void GraphicsHandler::createCommandBuffers(void)
+{
   VkResult result;
 
   // allocate command buffer for each framebuffer
@@ -1557,10 +1695,14 @@ void GraphicsHandler::createCommandBuffers(void) {
   result = vkAllocateCommandBuffers(m_Device,
                                     &allocInfo,
                                     m_CommandBuffers.data());
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to allocate command buffers!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to allocate command buffers!");
+  }
 
   // Begin recording command buffer
-  for (size_t i = 0; i < m_CommandBuffers.size(); i++) {
+  for (size_t i = 0; i < m_CommandBuffers.size(); i++)
+  {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.pNext = nullptr;
@@ -1568,7 +1710,10 @@ void GraphicsHandler::createCommandBuffers(void) {
     beginInfo.pInheritanceInfo = nullptr;
 
     result = vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo);
-    if (result != VK_SUCCESS) { G_EXCEPT("Failed to begin command buffer!"); }
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to begin command buffer!");
+    }
 
     // Begin render pass
     VkRenderPassBeginInfo renderPassInfo{};
@@ -1576,10 +1721,10 @@ void GraphicsHandler::createCommandBuffers(void) {
     renderPassInfo.pNext = nullptr;
     renderPassInfo.renderPass = m_RenderPass;
     renderPassInfo.framebuffer = m_Framebuffers[i];
-    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = selectedSwapExtent;
 
-    VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
+    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
@@ -1597,8 +1742,8 @@ void GraphicsHandler::createCommandBuffers(void) {
                          0,
                          VK_INDEX_TYPE_UINT16);
     // Bind vertex buffers
-    VkBuffer vertexBuffers[] = { m_VertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
+    VkBuffer vertexBuffers[] = {m_VertexBuffer};
+    VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
 
     // Bind our descriptor sets
@@ -1611,19 +1756,22 @@ void GraphicsHandler::createCommandBuffers(void) {
                             0,
                             nullptr);
 
-    // vkCmdDraw(m_CommandBuffers[i], 3, 1, 0, 0);
-    // Now we use drawIndexed
+    // Iterate all objects and draw
+    // Later optimisation will determine which SHOULD be rendered and not
+    
+    // Draw human entities
     vkCmdDrawIndexed(m_CommandBuffers[i],
-                     static_cast<uint32_t>(indices.size()),
+                     static_cast<uint32_t>(Human.indices.size()),
                      1,
-                     0,
-                     0,
+                     Human.indexStartOffset,
+                     Human.vertexStartOffset,
                      0);
 
     vkCmdEndRenderPass(m_CommandBuffers[i]);
 
     result = vkEndCommandBuffer(m_CommandBuffers[i]);
-    if (result != VK_SUCCESS) {
+    if (result != VK_SUCCESS)
+    {
       G_EXCEPT("Error ending command buffer recording");
     }
   }
@@ -1635,7 +1783,8 @@ void GraphicsHandler::createCommandBuffers(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createSyncObjects(void) {
+void GraphicsHandler::createSyncObjects(void)
+{
   VkResult result;
 
   VkSemaphoreCreateInfo semaphoreCreateInfo{};
@@ -1658,24 +1807,34 @@ void GraphicsHandler::createSyncObjects(void) {
   m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
   m_imagesInFlight.resize(m_SwapImages.size(), VK_NULL_HANDLE);
 
-  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+  {
     result = vkCreateSemaphore(m_Device,
                                &semaphoreCreateInfo,
                                nullptr,
                                &m_imageAvailableSemaphore[i]);
-    if (result != VK_SUCCESS) { G_EXCEPT("Failed to create image semaphore!"); }
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to create image semaphore!");
+    }
 
     result = vkCreateSemaphore(m_Device,
                                &semaphoreCreateInfo,
                                nullptr,
                                &m_renderFinishedSemaphore[i]);
-    if (result != VK_SUCCESS) { G_EXCEPT("Failed to create render semaphore"); }
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to create render semaphore");
+    }
 
     result = vkCreateFence(m_Device,
                            &fenceCreateInfo,
                            nullptr,
                            &m_inFlightFences[i]);
-    if (result != VK_SUCCESS) { G_EXCEPT("Failed to create fences"); }
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to create fences");
+    }
   }
   return;
 }
@@ -1686,17 +1845,20 @@ void GraphicsHandler::createSyncObjects(void) {
 
 // Searches for specified layers(Global variable validationLayers)
 // and returns whether they were all available or not
-bool GraphicsHandler::checkValidationLayerSupport(std::string* failList) {
+bool GraphicsHandler::checkValidationLayerSupport(std::string *failList)
+{
   uint32_t layerCount = 0;
   failList->clear();
   VkResult result;
   result = vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting instance layer count!");
   }
 
   // Ensure we found layers
-  if (!layerCount) {
+  if (!layerCount)
+  {
     *failList = "Layer check could not find any available layers on system!";
     return false;
   }
@@ -1704,18 +1866,22 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList) {
   std::vector<VkLayerProperties> availableLayers(layerCount);
   result = vkEnumerateInstanceLayerProperties(&layerCount,
                                               availableLayers.data());
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting instance layer list!");
   }
 
   // iterates through list of requested layers
-  for (const char* layerName : requestedValidationLayers) {
+  for (const char *layerName : requestedValidationLayers)
+  {
     bool layerFound = false;
 
     // iterates through list of fetched supported layers
-    for (const auto& fetchedLayer : availableLayers) {
+    for (const auto &fetchedLayer : availableLayers)
+    {
       // check if we have a match between fetched layer and requested one
-      if (strcmp(layerName, fetchedLayer.layerName) == 0) {
+      if (strcmp(layerName, fetchedLayer.layerName) == 0)
+      {
         layerFound = true;
         break;
       }
@@ -1723,7 +1889,8 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList) {
 
     // if we made it through fetched list without finding layer
     // add to failure list
-    if (!layerFound) {
+    if (!layerFound)
+    {
       *failList += layerName;
       *failList += "\n";
     }
@@ -1731,9 +1898,12 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList) {
 
   // if failList is not empty return errors
   // errors added to fail list as they occur so just return here
-  if (!failList->empty()) {
+  if (!failList->empty())
+  {
     return false;
-  } else {
+  }
+  else
+  {
     return true;
   }
 }
@@ -1741,60 +1911,69 @@ bool GraphicsHandler::checkValidationLayerSupport(std::string* failList) {
 /*
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
-bool GraphicsHandler::checkInstanceExtensionSupport(std::string* failList) {
+bool GraphicsHandler::checkInstanceExtensionSupport(std::string *failList)
+{
   uint32_t instanceExtensionCount = 0;
   VkResult result;
-  failList->clear();  // ensure failList is clear
+  failList->clear(); // ensure failList is clear
 
   // get the number of supported instance extensions
   result = vkEnumerateInstanceExtensionProperties(nullptr,
                                                   &instanceExtensionCount,
                                                   nullptr);
-  if (result != VK_SUCCESS) {
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting instance extension count!");
   }
 
   // ensure we found any extensions
-  if (!instanceExtensionCount) {
+  if (!instanceExtensionCount)
+  {
     *failList =
-      "Extension check could not find any available extensions on system";
+        "Extension check could not find any available extensions on system";
     return false;
   }
 
   // fetch all the supported instances
   std::vector<VkExtensionProperties>
-    availableInstanceExtensions(instanceExtensionCount);
+      availableInstanceExtensions(instanceExtensionCount);
   result =
-    vkEnumerateInstanceExtensionProperties(
-      nullptr,
-      &instanceExtensionCount,
-      availableInstanceExtensions.data());
-  if (result != VK_SUCCESS) {
+      vkEnumerateInstanceExtensionProperties(
+          nullptr,
+          &instanceExtensionCount,
+          availableInstanceExtensions.data());
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting instance extension list!");
   }
 
   // iterate requested INSTANCE extensions
-  for (const auto& requestedExtensions : requestedInstanceExtensions) {
+  for (const auto &requestedExtensions : requestedInstanceExtensions)
+  {
     bool extensionMatch = false;
 
     // iterate the list of all supported INSTANCE extensions
-    for (const auto& fetchedExtensions : availableInstanceExtensions) {
+    for (const auto &fetchedExtensions : availableInstanceExtensions)
+    {
       // check if match
-      if (strcmp(requestedExtensions, fetchedExtensions.extensionName) == 0) {
+      if (strcmp(requestedExtensions, fetchedExtensions.extensionName) == 0)
+      {
         extensionMatch = true;
         break;
       }
     }
 
     // if failed to find match, add to failList
-    if (!extensionMatch) {
+    if (!extensionMatch)
+    {
       *failList += requestedExtensions;
       *failList += "\n";
     }
   }
 
   // if failList is not empty return failure
-  if (!failList->empty()) {
+  if (!failList->empty())
+  {
     return false;
   }
 
@@ -1806,41 +1985,47 @@ bool GraphicsHandler::checkInstanceExtensionSupport(std::string* failList) {
 */
 
 // check for DEVICE level extensions
-bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList) {
+bool GraphicsHandler::checkDeviceExtensionSupport(std::string *failList)
+{
   uint32_t deviceExtensionCount = 0;
   VkResult result;
-  failList->clear();  // ensure failList is clear
+  failList->clear(); // ensure failList is clear
 
   // get total number of supported DEVICE extensions
   result = vkEnumerateDeviceExtensionProperties(
-    deviceInfoList.at(selectedIndex).devHandle,
-    nullptr,
-    &deviceExtensionCount,
-    nullptr);
-  if (result != VK_SUCCESS) {
+      deviceInfoList.at(selectedIndex).devHandle,
+      nullptr,
+      &deviceExtensionCount,
+      nullptr);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting count of device extensions!");
   }
 
   std::vector<VkExtensionProperties>
-    availableDeviceExtensions(deviceExtensionCount);
+      availableDeviceExtensions(deviceExtensionCount);
 
   // fetch list of all supported DEVICE extensions
   result = vkEnumerateDeviceExtensionProperties(
-    deviceInfoList.at(selectedIndex).devHandle,
-    nullptr,
-    &deviceExtensionCount,
-    availableDeviceExtensions.data());
-  if (result != VK_SUCCESS) {
+      deviceInfoList.at(selectedIndex).devHandle,
+      nullptr,
+      &deviceExtensionCount,
+      availableDeviceExtensions.data());
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting device extension list!");
   }
 
   // iterate list of requested DEVICE extensions
-  for (const auto& requestedExtension : requestedDeviceExtensions) {
+  for (const auto &requestedExtension : requestedDeviceExtensions)
+  {
     bool extensionMatch = false;
     // iterate list of supported DEVICE extensions
-    for (const auto& fetchedDeviceExtension : availableDeviceExtensions) {
+    for (const auto &fetchedDeviceExtension : availableDeviceExtensions)
+    {
       if (strcmp(requestedExtension,
-                 fetchedDeviceExtension.extensionName) == 0) {
+                 fetchedDeviceExtension.extensionName) == 0)
+      {
         extensionMatch = true;
         break;
       }
@@ -1848,13 +2033,13 @@ bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList) {
 
     // if failed to find requested DEVICE extension
     // add to failList
-    if (!extensionMatch) {
+    if (!extensionMatch)
+    {
       *failList += requestedExtension;
       *failList += "\n";
     }
   }
 
-
   return true;
 }
 
@@ -1862,29 +2047,39 @@ bool GraphicsHandler::checkDeviceExtensionSupport(std::string* failList) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-bool GraphicsHandler::loadDebugUtils(void) {
+bool GraphicsHandler::loadDebugUtils(void)
+{
   PFN_vkVoidFunction temp_fp;
 
   // load vkCreateDebugUtilsMessengerEXT
   temp_fp = vkGetInstanceProcAddr(m_Instance, "vkCreateDebugUtilsMessengerEXT");
-  if (!temp_fp) { G_EXCEPT("Failure loading vkCreateDebugUtilsMessengerEXT"); }
+  if (!temp_fp)
+  {
+    G_EXCEPT("Failure loading vkCreateDebugUtilsMessengerEXT");
+  }
   vkCreateDebugUtilsMessengerEXT =
-    reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(temp_fp);
+      reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(temp_fp);
 
   // load vkDestroyDebugUtilsMessengerEXT
   temp_fp =
-    vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
-  if (!temp_fp) { G_EXCEPT("Failure loading vkDestroyDebugUtilsMessengerEXT"); }
+      vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
+  if (!temp_fp)
+  {
+    G_EXCEPT("Failure loading vkDestroyDebugUtilsMessengerEXT");
+  }
 
   vkDestroyDebugUtilsMessengerEXT =
-    reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(temp_fp);
+      reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(temp_fp);
 
   // load vkSubmitDebugUtilsMessageEXT
   temp_fp = vkGetInstanceProcAddr(m_Instance, "vkSubmitDebugUtilsMessageEXT");
-  if (!temp_fp) { G_EXCEPT("Failure loading vkSubmitDebugUtilsMessageEXT"); }
+  if (!temp_fp)
+  {
+    G_EXCEPT("Failure loading vkSubmitDebugUtilsMessageEXT");
+  }
 
   vkSubmitDebugUtilsMessageEXT =
-    reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(temp_fp);
+      reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(temp_fp);
 
   return true;
 }
@@ -1893,68 +2088,76 @@ bool GraphicsHandler::loadDebugUtils(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
+SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void)
+{
   SwapChainSupportDetails details;
   VkResult result;
 
   result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-    m_PhysicalDevice,
-    m_Surface,
-    &details.capabilities);
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      m_Surface,
+      &details.capabilities);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting surface swap chain capabilities!");
   }
 
   // get supported formats
   uint32_t formatCount = 0;
   result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-    m_PhysicalDevice,
-    m_Surface,
-    &formatCount,
-    nullptr);
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      m_Surface,
+      &formatCount,
+      nullptr);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Error finding supported formats for surface!");
   }
 
   // ensure formats exist
-  if (formatCount == 0) {
+  if (formatCount == 0)
+  {
     G_EXCEPT("No supported formats found for surface!");
   }
 
   // get list of supported surface formats
   details.formats.resize(formatCount);
   result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-    m_PhysicalDevice,
-    m_Surface,
-    &formatCount,
-    details.formats.data());
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      m_Surface,
+      &formatCount,
+      details.formats.data());
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("There was an error getting supported formats list!");
   }
 
   uint32_t presentModeCount = 0;
   result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-    m_PhysicalDevice,
-    m_Surface,
-    &presentModeCount,
-    nullptr);
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      m_Surface,
+      &presentModeCount,
+      nullptr);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Error getting supported present mode count!");
   }
 
   // ensure present modes exist
-  if (presentModeCount == 0) {
+  if (presentModeCount == 0)
+  {
     G_EXCEPT("Failed to find any supported present modes!");
   }
 
   // get list of surface present modes
   details.presentModes.resize(presentModeCount);
   result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-    m_PhysicalDevice,
-    m_Surface,
-    &presentModeCount,
-    details.presentModes.data());
-  if (result != VK_SUCCESS) {
+      m_PhysicalDevice,
+      m_Surface,
+      &presentModeCount,
+      details.presentModes.data());
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Error getting supported surface presentation modes!");
   }
 
@@ -1965,7 +2168,8 @@ SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char>& code) {
+VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char> &code)
+{
   VkResult result;
   VkShaderModule module;
 
@@ -1974,10 +2178,13 @@ VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char>& code
   moduleInfo.pNext = nullptr;
   moduleInfo.flags = 0;
   moduleInfo.codeSize = code.size();
-  moduleInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+  moduleInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
   result = vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &module);
-  if (result != VK_SUCCESS) { G_EXCEPT("Failed to create shader module!"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create shader module!");
+  }
 
   return module;
 }
@@ -1988,35 +2195,52 @@ VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char>& code
 
 VKAPI_ATTR
 VkBool32
-VKAPI_CALL
-debugMessageProcessor(
-  VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-  __attribute__((unused))VkDebugUtilsMessageTypeFlagsEXT message_type,
-  const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-  __attribute__((unused))void* user_data) {
-  if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+    VKAPI_CALL
+    debugMessageProcessor(
+        VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        __attribute__((unused)) VkDebugUtilsMessageTypeFlagsEXT message_type,
+        const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
+        __attribute__((unused)) void *user_data)
+{
+  if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+  {
     std::ostringstream oss;
-    oss << std::endl << "Warning: " << callback_data->messageIdNumber
+    oss << std::endl
+        << "Warning: " << callback_data->messageIdNumber
         << ", " << callback_data->pMessageIdName << std::endl
-        << callback_data->pMessage << std::endl << std::endl;
+        << callback_data->pMessage << std::endl
+        << std::endl;
     std::cout << oss.str();
-  } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT && 1 == 2) {
+  }
+  else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT && 1 == 2)
+  {
     // Disabled by the impossible statement
     std::ostringstream oss;
-      oss << std::endl << "Verbose message : " << callback_data->messageIdNumber << ", " << callback_data->pMessageIdName
-      << std::endl << callback_data->pMessage << std::endl << std::endl;
-      std::cout << oss.str();
-  } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-    std::ostringstream oss;
-    oss << std::endl << "Error: " << callback_data->messageIdNumber
-        << ", " << callback_data->pMessageIdName << std::endl
-        << callback_data->pMessage << std::endl << std::endl;
+    oss << std::endl
+        << "Verbose message : " << callback_data->messageIdNumber << ", " << callback_data->pMessageIdName
+        << std::endl
+        << callback_data->pMessage << std::endl
+        << std::endl;
     std::cout << oss.str();
-  } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+  }
+  else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+  {
     std::ostringstream oss;
-    oss << std::endl << "Info: " << callback_data->messageIdNumber
+    oss << std::endl
+        << "Error: " << callback_data->messageIdNumber
         << ", " << callback_data->pMessageIdName << std::endl
-        << callback_data->pMessage << std::endl << std::endl;
+        << callback_data->pMessage << std::endl
+        << std::endl;
+    std::cout << oss.str();
+  }
+  else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+  {
+    std::ostringstream oss;
+    oss << std::endl
+        << "Info: " << callback_data->messageIdNumber
+        << ", " << callback_data->pMessageIdName << std::endl
+        << callback_data->pMessage << std::endl
+        << std::endl;
   }
   return VK_FALSE;
 }
@@ -2030,10 +2254,13 @@ debugMessageProcessor(
   Selects VK_FORMAT_B8G8R8A8_SRGB if it exists as it is one of the most common formats for images
   and non linear sRGB as it is also the most common
 */
-VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void) {
-  for (const auto& availableFormat : m_SurfaceDetails.formats) {
+VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
+{
+  for (const auto &availableFormat : m_SurfaceDetails.formats)
+  {
     if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
-        availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    {
       return availableFormat;
     }
   }
@@ -2045,14 +2272,19 @@ VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void) {
+VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
+{
   // application will prefer MAILBOX present mode as it is akin to
   // triple buffering with less latency
-  for (const auto& presentMode : m_SurfaceDetails.presentModes) {
+  for (const auto &presentMode : m_SurfaceDetails.presentModes)
+  {
     std::ostringstream oss;
-    if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+    if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    {
       return presentMode;
-    } else if (presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+    }
+    else if (presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+    {
       return presentMode;
     }
   }
@@ -2069,18 +2301,23 @@ VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void) {
   Set resolution of swap chain images
   should be equal to render area of window
 */
-VkExtent2D GraphicsHandler::chooseSwapChainExtent(void) {
-  if (m_SurfaceDetails.capabilities.currentExtent.width != UINT32_MAX) {
+VkExtent2D GraphicsHandler::chooseSwapChainExtent(void)
+{
+  if (m_SurfaceDetails.capabilities.currentExtent.width != UINT32_MAX)
+  {
     return m_SurfaceDetails.capabilities.currentExtent;
-  } else {
+  }
+  else
+  {
     Window rw;
-    int rx, ry;  // returned x/y
-    uint rwidth, rheight;  // returned width/height
-    uint rborder;  // returned  border width
-    uint rdepth;  // returned bit depth
+    int rx, ry;           // returned x/y
+    uint rwidth, rheight; // returned width/height
+    uint rborder;         // returned  border width
+    uint rdepth;          // returned bit depth
     if (!XGetGeometry(display,
                       *window, &rw, &rx, &ry,
-                      &rwidth, &rheight, &rborder, &rdepth)) {
+                      &rwidth, &rheight, &rborder, &rdepth))
+    {
       G_EXCEPT("[-] Failed to get window geometry!");
     }
 
@@ -2090,15 +2327,15 @@ VkExtent2D GraphicsHandler::chooseSwapChainExtent(void) {
 
     // do some min max clamping
     actualExtent.width = std::max(
-      m_SurfaceDetails.capabilities.minImageExtent.width,
-      std::min(
-        m_SurfaceDetails.capabilities.maxImageExtent.width,
-        actualExtent.width));
+        m_SurfaceDetails.capabilities.minImageExtent.width,
+        std::min(
+            m_SurfaceDetails.capabilities.maxImageExtent.width,
+            actualExtent.width));
 
     actualExtent.height = std::max(
-      m_SurfaceDetails.capabilities.minImageExtent.height,
-      std::min(m_SurfaceDetails.capabilities.maxImageExtent.height,
-               actualExtent.height));
+        m_SurfaceDetails.capabilities.minImageExtent.height,
+        std::min(m_SurfaceDetails.capabilities.maxImageExtent.height,
+                 actualExtent.height));
     return actualExtent;
   }
 }
@@ -2107,13 +2344,15 @@ VkExtent2D GraphicsHandler::chooseSwapChainExtent(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-std::vector<char> GraphicsHandler::readFile(std::string filename) {
+std::vector<char> GraphicsHandler::readFile(std::string filename)
+{
   size_t fileSize;
   std::ifstream file;
   std::vector<char> buffer;
 
   // check if file exists
-  if (!std::filesystem::exists(filename)) {
+  if (!std::filesystem::exists(filename))
+  {
     std::ostringstream oss;
     oss << "Specified file does not exist -> " << filename << std::endl;
     G_EXCEPT(oss.str());
@@ -2121,7 +2360,8 @@ std::vector<char> GraphicsHandler::readFile(std::string filename) {
 
   file.open(filename, std::ios::ate | std::ios::binary);
 
-  if (!file.is_open()) {
+  if (!file.is_open())
+  {
     std::ostringstream oss;
     oss << "Failed to open file " << filename;
     G_EXCEPT(oss.str());
@@ -2143,15 +2383,19 @@ std::vector<char> GraphicsHandler::readFile(std::string filename) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::cleanupSwapChain(void) {
+void GraphicsHandler::cleanupSwapChain(void)
+{
   // Clean up frame buffers
-  for (const auto& buffer : m_Framebuffers) {
-    if(buffer != VK_NULL_HANDLE) {
+  for (const auto &buffer : m_Framebuffers)
+  {
+    if (buffer != VK_NULL_HANDLE)
+    {
       vkDestroyFramebuffer(m_Device, buffer, nullptr);
     }
   }
 
-  if (!m_Framebuffers.empty()) {
+  if (!m_Framebuffers.empty())
+  {
     vkFreeCommandBuffers(m_Device,
                          m_CommandPool,
                          static_cast<uint32_t>(m_Framebuffers.size()),
@@ -2159,45 +2403,58 @@ void GraphicsHandler::cleanupSwapChain(void) {
   }
 
   // Destroy pipeline object
-  if (m_Pipeline != VK_NULL_HANDLE) {
+  if (m_Pipeline != VK_NULL_HANDLE)
+  {
     vkDestroyPipeline(m_Device, m_Pipeline, nullptr);
   }
   // Destroy pipeline layout
-  if (m_PipelineLayout != VK_NULL_HANDLE) {
+  if (m_PipelineLayout != VK_NULL_HANDLE)
+  {
     vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
   }
   // Destroy render pass object
-  if (m_RenderPass != VK_NULL_HANDLE) {
+  if (m_RenderPass != VK_NULL_HANDLE)
+  {
     vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
   }
   // Destroy and free memory for uniform buffers
-  if(!m_UniformBuffers.empty()) {
+  if (!m_UniformBuffers.empty())
+  {
     // Buffers
-    for(const auto& buffer : m_UniformBuffers) {
-      if (buffer != VK_NULL_HANDLE) {
+    for (const auto &buffer : m_UniformBuffers)
+    {
+      if (buffer != VK_NULL_HANDLE)
+      {
         vkDestroyBuffer(m_Device, buffer, nullptr);
       }
     }
     // Memory allocations
-    for(const auto& memory : m_UniformMemory) {
-      if (memory != VK_NULL_HANDLE) {
+    for (const auto &memory : m_UniformMemory)
+    {
+      if (memory != VK_NULL_HANDLE)
+      {
         vkFreeMemory(m_Device, memory, nullptr);
       }
     }
   }
   // Free descriptor pool
-  if(m_DescriptorPool != VK_NULL_HANDLE) {
+  if (m_DescriptorPool != VK_NULL_HANDLE)
+  {
     vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
   }
   // ensure we destroy all views to swap chain images
-  if (!m_SwapViews.empty()) {
-    for (const auto& view : m_SwapViews) {
-      if (view != VK_NULL_HANDLE) {
+  if (!m_SwapViews.empty())
+  {
+    for (const auto &view : m_SwapViews)
+    {
+      if (view != VK_NULL_HANDLE)
+      {
         vkDestroyImageView(m_Device, view, nullptr);
       }
     }
   }
-  if (m_Swap != VK_NULL_HANDLE && m_Swap != nullptr) {
+  if (m_Swap != VK_NULL_HANDLE && m_Swap != nullptr)
+  {
     vkDestroySwapchainKHR(m_Device, m_Swap, nullptr);
   }
   return;
@@ -2207,14 +2464,16 @@ void GraphicsHandler::cleanupSwapChain(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::recreateSwapChain(void) {
+void GraphicsHandler::recreateSwapChain(void)
+{
   vkDeviceWaitIdle(m_Device);
 
   /*
     Ensure resources weren't previously destroyed before
     attempting to do so again
   */
-  if (SHOULD_RENDER) {
+  if (SHOULD_RENDER)
+  {
     // free up binded resources for recreation
     cleanupSwapChain();
   }
@@ -2224,16 +2483,20 @@ void GraphicsHandler::recreateSwapChain(void) {
   m_SurfaceDetails = querySwapChainSupport();
 
   if (m_SurfaceDetails.formats.empty() ||
-      m_SurfaceDetails.presentModes.empty()) {
+      m_SurfaceDetails.presentModes.empty())
+  {
     G_EXCEPT("Selected device does not support any presents/formats");
   }
 
   // if any dimensions are 0, skip resource creation
   if (m_SurfaceDetails.capabilities.currentExtent.width == 0 ||
-      m_SurfaceDetails.capabilities.currentExtent.height == 0) {
+      m_SurfaceDetails.capabilities.currentExtent.height == 0)
+  {
     SHOULD_RENDER = false;
     return;
-  } else {
+  }
+  else
+  {
     SHOULD_RENDER = true;
   }
 
@@ -2259,15 +2522,18 @@ void GraphicsHandler::recreateSwapChain(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
   VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
   vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice,
                                       &deviceMemoryProperties);
 
-  for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++) {
+  for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
+  {
     if (typeFilter & (1 << i) &&
         (deviceMemoryProperties.memoryTypes[i].propertyFlags &
-         properties) == properties) {
+         properties) == properties)
+    {
       return i;
     }
   }
@@ -2279,7 +2545,8 @@ uint32_t GraphicsHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFl
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* buffer, VkDeviceMemory* bufferMemory) {
+void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory)
+{
   VkResult result;
 
   // describe creation of vertex buffer
@@ -2293,15 +2560,16 @@ void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
   bufferInfo.queueFamilyIndexCount = 0;
   bufferInfo.pQueueFamilyIndices = nullptr;
 
-  // Create vertex buffer
-  result = vkCreateBuffer(m_Device, &bufferInfo, nullptr, buffer);
-  if (result != VK_SUCCESS) {
+  // Create the buffer with given specs
+  result = vkCreateBuffer(m_Device, &bufferInfo, nullptr, &buffer);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to create vertex buffer!");
   }
 
   // allocate memory for buffer
   VkMemoryRequirements memRequirements{};
-  vkGetBufferMemoryRequirements(m_Device, *buffer, &memRequirements);
+  vkGetBufferMemoryRequirements(m_Device, buffer, &memRequirements);
 
   // Describe memory allocation
   VkMemoryAllocateInfo allocInfo{};
@@ -2309,17 +2577,19 @@ void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
   allocInfo.pNext = nullptr;
   allocInfo.allocationSize = memRequirements.size;
   allocInfo.memoryTypeIndex =
-    findMemoryType(memRequirements.memoryTypeBits, properties);
+      findMemoryType(memRequirements.memoryTypeBits, properties);
 
   // Allocate the memory
-  result = vkAllocateMemory(m_Device, &allocInfo, nullptr, bufferMemory);
-  if (result != VK_SUCCESS) {
+  result = vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to allocate memory for vertex buffer!");
   }
 
   // Now bind the memory to the buffer
-  result = vkBindBufferMemory(m_Device, *buffer, *bufferMemory, 0);
-  if (result != VK_SUCCESS) {
+  result = vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+  if (result != VK_SUCCESS)
+  {
     G_EXCEPT("Failed to bind memory to vertex buffer");
   }
   return;
@@ -2330,13 +2600,14 @@ void GraphicsHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
 */
 
 void GraphicsHandler::createImage(uint32_t width,
-                                 uint32_t height,
-                                 VkFormat format,
-                                 VkImageTiling tiling,
-                                 VkImageUsageFlags usage,
-                                 VkMemoryPropertyFlags properties,
-                                 VkImage& image,
-                                  VkDeviceMemory& imageMemory) {
+                                  uint32_t height,
+                                  VkFormat format,
+                                  VkImageTiling tiling,
+                                  VkImageUsageFlags usage,
+                                  VkMemoryPropertyFlags properties,
+                                  VkImage &image,
+                                  VkDeviceMemory &imageMemory)
+{
   VkResult result;
 
   VkImageCreateInfo imageInfo{};
@@ -2354,12 +2625,15 @@ void GraphicsHandler::createImage(uint32_t width,
   imageInfo.tiling = tiling;
   imageInfo.usage = usage;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.queueFamilyIndexCount = 0;  // not used when exclusive
-  imageInfo.pQueueFamilyIndices = nullptr;  // not used when exclusive
+  imageInfo.queueFamilyIndexCount = 0;     // not used when exclusive
+  imageInfo.pQueueFamilyIndices = nullptr; // not used when exclusive
   imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
   result = vkCreateImage(m_Device, &imageInfo, nullptr, &image);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create image"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create image");
+  }
 
   VkMemoryRequirements memRequirements;
   vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
@@ -2369,12 +2643,15 @@ void GraphicsHandler::createImage(uint32_t width,
   allocInfo.pNext = nullptr;
   allocInfo.allocationSize = memRequirements.size;
   allocInfo.memoryTypeIndex =
-    findMemoryType(memRequirements.memoryTypeBits, properties);
+      findMemoryType(memRequirements.memoryTypeBits, properties);
 
   result = vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory);
 
   result = vkBindImageMemory(m_Device, image, imageMemory, 0);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to bind image memory"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to bind image memory");
+  }
   return;
 }
 
@@ -2382,7 +2659,8 @@ void GraphicsHandler::createImage(uint32_t width,
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
   // Create command buffer and prepare for recording
   // immediately ready to record after this function
   VkCommandBuffer commandBuffer = beginSingleCommands();
@@ -2406,7 +2684,9 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex) {
+void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex)
+{
+  VkResult result;
   static auto startTime = std::chrono::high_resolution_clock::now();
 
   auto currentTime = std::chrono::high_resolution_clock::now();
@@ -2424,8 +2704,12 @@ void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex) {
 
   // Send the data to the uniform buffer
   // it was created to be accessible by cpu so just use vkMap
-  void* data;
-  vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(ubo), 0, &data);
+  void *data;
+  result = vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(ubo), 0, &data);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to update uniform buffer");
+  }
   memcpy(data, &ubo, sizeof(ubo));
   vkUnmapMemory(m_Device, m_UniformMemory[bufferIndex]);
   return;
@@ -2435,7 +2719,8 @@ void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-VkCommandBuffer GraphicsHandler::beginSingleCommands(void) {
+VkCommandBuffer GraphicsHandler::beginSingleCommands(void)
+{
   VkResult result;
 
   VkCommandBufferAllocateInfo allocInfo{};
@@ -2455,7 +2740,10 @@ VkCommandBuffer GraphicsHandler::beginSingleCommands(void) {
 
   // Initialize command buffer for recording
   result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create and begin a command buffer"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create and begin a command buffer");
+  }
 
   return commandBuffer;
 }
@@ -2464,12 +2752,16 @@ VkCommandBuffer GraphicsHandler::beginSingleCommands(void) {
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer) {
+void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer)
+{
   VkResult result;
 
   // End recording within' command buffer
   result = vkEndCommandBuffer(commandBuffer);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to end recording command buffer"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to end recording command buffer");
+  }
 
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2479,11 +2771,17 @@ void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer) {
 
   // Submit queue for processing
   result = vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to submit queue"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to submit queue");
+  }
 
   // Wait for the queue to finish
   result = vkQueueWaitIdle(m_GraphicsQueue);
-  if(result != VK_SUCCESS) { G_EXCEPT("Error occurred waiting for queue to finish"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Error occurred waiting for queue to finish");
+  }
 
   // Free up the command buffer
   vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
@@ -2497,7 +2795,8 @@ void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer) {
 void GraphicsHandler::transitionImageLayout(VkImage image,
                                             VkFormat format,
                                             VkImageLayout oldLayout,
-                                            VkImageLayout newLayout) {
+                                            VkImageLayout newLayout)
+{
   VkCommandBuffer commandBuffer = beginSingleCommands();
 
   VkImageMemoryBarrier barrier{};
@@ -2522,15 +2821,18 @@ void GraphicsHandler::transitionImageLayout(VkImage image,
   VkPipelineStageFlags destinationStage = 0;
 
   // Case => Newly created image to be loaded with data
-  if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
-     newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+  if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+      newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+  {
     barrier.srcAccessMask = 0;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     // Case => Post image transfer to be read into shader stage
-  } else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
-            newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+  }
+  else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+           newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+  {
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -2540,12 +2842,12 @@ void GraphicsHandler::transitionImageLayout(VkImage image,
   }
 
   vkCmdPipelineBarrier(
-    commandBuffer,
-    sourceStage, destinationStage,
-    0,
-    0, nullptr,
-    0, nullptr,
-    1, &barrier);
+      commandBuffer,
+      sourceStage, destinationStage,
+      0,
+      0, nullptr,
+      0, nullptr,
+      1, &barrier);
 
   endSingleCommands(commandBuffer);
   return;
@@ -2558,7 +2860,8 @@ void GraphicsHandler::transitionImageLayout(VkImage image,
 void GraphicsHandler::copyBufferToImage(VkBuffer buffer,
                                         VkImage image,
                                         uint32_t width,
-                                        uint32_t height) {
+                                        uint32_t height)
+{
   VkCommandBuffer commandBuffer = beginSingleCommands();
 
   VkBufferImageCopy region{};
@@ -2574,17 +2877,16 @@ void GraphicsHandler::copyBufferToImage(VkBuffer buffer,
   region.imageSubresource.baseArrayLayer = 0;
   region.imageSubresource.layerCount = 1;
 
-  region.imageOffset = { 0, 0, 0 };
-  region.imageExtent = { width, height, 1 };
-
+  region.imageOffset = {0, 0, 0};
+  region.imageExtent = {width, height, 1};
 
   // Copy the buffer using the predefined region info
   vkCmdCopyBufferToImage(commandBuffer,
-                                  buffer,
-                                  image,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  1,
-                                  &region);
+                         buffer,
+                         image,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                         1,
+                         &region);
 
   endSingleCommands(commandBuffer);
   return;
@@ -2594,7 +2896,8 @@ void GraphicsHandler::copyBufferToImage(VkBuffer buffer,
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format) {
+VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
+{
   VkResult result;
 
   VkImageView imageView;
@@ -2607,11 +2910,10 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format) {
   viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
   viewInfo.format = format;
   viewInfo.components = {
-  VK_COMPONENT_SWIZZLE_IDENTITY,
-  VK_COMPONENT_SWIZZLE_IDENTITY,
-  VK_COMPONENT_SWIZZLE_IDENTITY,
-  VK_COMPONENT_SWIZZLE_IDENTITY
-};
+      VK_COMPONENT_SWIZZLE_IDENTITY,
+      VK_COMPONENT_SWIZZLE_IDENTITY,
+      VK_COMPONENT_SWIZZLE_IDENTITY,
+      VK_COMPONENT_SWIZZLE_IDENTITY};
   viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   viewInfo.subresourceRange.baseMipLevel = 0;
   viewInfo.subresourceRange.levelCount = 1;
@@ -2619,9 +2921,93 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format) {
   viewInfo.subresourceRange.layerCount = 1;
 
   result = vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView);
-  if(result != VK_SUCCESS) { G_EXCEPT("Failed to create view into loaded texture"); }
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create view into loaded texture");
+  }
 
   return imageView;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+// Loads vertex data into the buffer
+void GraphicsHandler::processModelData(ModelClass *modelObj)
+{
+  std::cout << "[+] Loading model type :: " << modelObj->typeName << " :: into memory"
+            << std::endl;
+
+  VkResult result;
+
+  VkBuffer stagingBuffer{};
+  VkDeviceMemory stagingMemory{};
+
+  // Create the staging buffer
+  createBuffer(modelObj->vertexDataSize,
+               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               stagingBuffer,
+               stagingMemory);
+
+  // Map the staging buffer memory at stored offset
+  // memcpy data to that region
+  void *data;
+  result = vkMapMemory(m_Device,
+                       stagingMemory,
+                       modelObj->vertexStartOffset,
+                       modelObj->vertexDataSize,
+                       0,
+                       &data);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to map memory for processing of model data");
+  }
+  // Copy the data
+  memcpy(data, modelObj->vertices.data(), modelObj->vertexDataSize);
+
+  // Unmap staging memory
+  vkUnmapMemory(m_Device, stagingMemory);
+
+  // Staging buffer contains the data we need
+  // Copy the staging buffer data to the device local
+  // m_VertexBuffer
+  copyBuffer(stagingBuffer, m_VertexBuffer, modelObj->vertexDataSize);
+
+  // Delete and recreate staging buffer for indices
+  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+  vkFreeMemory(m_Device, stagingMemory, nullptr);
+
+  // New stage allocated for indices size
+  createBuffer(modelObj->indexDataSize,
+              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+              stagingBuffer,
+              stagingMemory);
+
+  // Map staging buffer again
+  result = vkMapMemory(m_Device,
+                        stagingMemory,
+                        modelObj->vertexStartOffset,
+                        modelObj->vertexDataSize,
+                        0,
+                        &data);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to map memory for processing of model data");
+  }
+  // Move index data into staging
+  memcpy(data, modelObj->indices.data(), modelObj->indexDataSize);
+
+  // Copy the index data from stage to index buffer
+  std::cout << "index buffer addr " << m_IndexBuffer << std::endl;
+  copyBuffer(stagingBuffer, m_IndexBuffer, modelObj->indexDataSize);
+
+  // cleanup stage for good
+  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+  vkFreeMemory(m_Device, stagingMemory, nullptr);
+  return;
 }
 
 /*

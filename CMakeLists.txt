@@ -10,12 +10,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./build)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(HEADERS 
+    Headers/Models.h
     Headers/Primitives.h
     Headers/GraphicsHandler.h
     Headers/ExceptionHandler.h
     Headers/WindowHandler.h)
 
-set(SOURCES 
+set(SOURCES
+    Models.cpp
     Primitives.cpp
     GraphicsHandler.cpp
     ExceptionHandler.cpp
