@@ -38,6 +38,9 @@ public:
   ModelClass(void);
   ~ModelClass(void);
 
+  // safety
+  ModelClass& operator=(const ModelClass&) = delete;
+
   // These offsets help each object type track it's own
   // location in memory; These offsets can be passed to
   // vulkan binding functions and subsequently the shader

@@ -51,13 +51,13 @@ std::pair<int, int> ModelClass::loadModelData(std::pair<int, int> vertexAndIndex
 
     // We know we cannot exceed INITIAL_BUFFER_SIZE so lets ensure
     // our model data will not do so
-    int vertexEndOffset = vertexStartOffset + (vertices.size() * sizeof(Vertex));
-    int indexEndOffset = indexStartOffset + (indices.size() * sizeof(uint16_t));
-
     vertexDataSize = sizeof(Vertex) * vertices.size();
     indexDataSize = sizeof(uint16_t) * indices.size();
 
-    if(vertexEndOffset> VERTEX_BUFFER_SIZE) {
+    int vertexEndOffset = vertexStartOffset + vertexDataSize;
+    int indexEndOffset = indexStartOffset + indexDataSize;
+
+    if(vertexEndOffset > VERTEX_BUFFER_SIZE) {
         std::cout << "\t[-] Self check : Model data will exceed vertex buffer size" << std::endl;
         return { -1, -1 };
     } else {
@@ -67,6 +67,8 @@ std::pair<int, int> ModelClass::loadModelData(std::pair<int, int> vertexAndIndex
     if(indexEndOffset > INDEX_BUFFER_SIZE) {
         std::cout << "\t[-] Self check : Model index data will exceed index buffer size" << std::endl;
         return { -1, -1 };
+    } else {
+        std::cout << "\t[+] Self check : Model index data within memory constraints" << std::endl;
     }
     return { vertexEndOffset, indexEndOffset };
 }

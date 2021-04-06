@@ -1758,7 +1758,7 @@ void GraphicsHandler::createCommandBuffers(void)
 
     // Iterate all objects and draw
     // Later optimisation will determine which SHOULD be rendered and not
-    
+
     // Draw human entities
     vkCmdDrawIndexed(m_CommandBuffers[i],
                      static_cast<uint32_t>(Human.indices.size()),
@@ -2936,8 +2936,8 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
 // Loads vertex data into the buffer
 void GraphicsHandler::processModelData(ModelClass *modelObj)
 {
-  std::cout << "[+] Loading model type :: " << modelObj->typeName << " :: into memory"
-            << std::endl;
+  std::cout << "[+] Moving allocated model :: " << modelObj->typeName
+            << " :: into gpu memory" << std::endl;
 
   VkResult result;
 
@@ -2981,18 +2981,18 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
 
   // New stage allocated for indices size
   createBuffer(modelObj->indexDataSize,
-              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-              stagingBuffer,
-              stagingMemory);
+               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               stagingBuffer,
+               stagingMemory);
 
   // Map staging buffer again
   result = vkMapMemory(m_Device,
-                        stagingMemory,
-                        modelObj->vertexStartOffset,
-                        modelObj->vertexDataSize,
-                        0,
-                        &data);
+                       stagingMemory,
+                       modelObj->vertexStartOffset,
+                       modelObj->vertexDataSize,
+                       0,
+                       &data);
   if (result != VK_SUCCESS)
   {
     G_EXCEPT("Failed to map memory for processing of model data");
