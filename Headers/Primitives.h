@@ -2,9 +2,12 @@
 #define HEADERS_PRIMITIVES_H_
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <array>
 #include <vector>
 #include <chrono>
@@ -13,7 +16,6 @@ struct Vertex
 {
 	glm::vec3 pos;
 	glm::vec4 color;
-	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription getBindingDescription()
 	{
@@ -25,10 +27,10 @@ struct Vertex
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
 	{
 		// Temp container to be returned
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
 		// Position
 		attributeDescriptions[0].binding = 0;
@@ -42,24 +44,19 @@ struct Vertex
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
 
-		// Texture coordinate
-		attributeDescriptions[2].binding = 0;
-		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
 		return attributeDescriptions;
 	}
 };
 
-/*
-**
- */
-struct UniformBufferObject
-{
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
+// Binding = 0
+struct UniformModelBuffer {
+	alignas(16) glm::mat4 model;
+};
+
+// Binding = 1
+struct UniformVPBuffer {
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };
 
 #endif

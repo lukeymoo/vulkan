@@ -1,15 +1,13 @@
 #include "Models.h"
 
 HumanClass::HumanClass(void) {
+    position = {0.0f, 0.0f, 0.0f};
+    worldMatrix = glm::mat4();
+    worldMatrix = glm::translate(worldMatrix, position);
     return;
 }
 
 HumanClass::~HumanClass(void) {
-    return;
-}
-
-ModelClass::ModelClass(void) {
-    typeName = "[Undefined Model Type!]";
     return;
 }
 
@@ -31,18 +29,18 @@ ModelClass::~ModelClass(void) {
 ** But later will read into specified file and
 ** validate/fill vertices container with data from file
  */
-std::pair<int, int> ModelClass::loadModelData(std::pair<int, int> vertexAndIndexOffsets, std::string modelTypeName) {
-    typeName = modelTypeName;
+std::pair<int, int> ModelClass::loadModelData(std::pair<int, int> vertexAndIndexOffsets) {
     // Store the given start location
     vertexStartOffset = vertexAndIndexOffsets.first;
     indexStartOffset = vertexAndIndexOffsets.second;
 
-    // Populate local vertex container
+    // Describe the shape of this model
+    // Vertex data per instance is located in subclass container
     vertices = {
-          {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-          {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-          {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-          {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+            {{-0.5f, -0.5f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+            {{ 0.5f, -0.5f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+            {{ 0.5f,  0.5f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+            {{-0.5f,  0.5f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}
     };
 
     indices = {
@@ -60,15 +58,11 @@ std::pair<int, int> ModelClass::loadModelData(std::pair<int, int> vertexAndIndex
     if(vertexEndOffset > VERTEX_BUFFER_SIZE) {
         std::cout << "\t[-] Self check : Model data will exceed vertex buffer size" << std::endl;
         return { -1, -1 };
-    } else {
-        std::cout << "\t[+] Self check : Model data within memory constraints" << std::endl;
     }
 
     if(indexEndOffset > INDEX_BUFFER_SIZE) {
         std::cout << "\t[-] Self check : Model index data will exceed index buffer size" << std::endl;
         return { -1, -1 };
-    } else {
-        std::cout << "\t[+] Self check : Model index data within memory constraints" << std::endl;
     }
     return { vertexEndOffset, indexEndOffset };
 }

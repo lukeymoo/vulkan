@@ -16,6 +16,7 @@
 
 #include "ExceptionHandler.h"
 #include "Models.h"
+#include "Camera.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -108,6 +109,7 @@ private:
         bool SHOULD_RENDER = true;
         int windowWidth;
         int windowHeight;
+        int MAX_UNIFORM_BUFFER_SIZE = 0;
         // selects/configures logical device & command queue
         void initVulkan(void);
         void createInstance(void);
@@ -122,14 +124,26 @@ private:
         void createGraphicsPipeline(void);
         void createFrameBuffers(void);
         void createCommandPool(void);
+
         void createTextureImage(void);
         void createTextureImageView(void);
         void createTextureSampler(void);
+        
         void createCommandBuffers(void);
         void createSyncObjects(void);
+        
+        // Contains defined vertices
         void createVertexBuffer(void);
+
+        // This buffer contains indexes to defined vertices
+        // Saves memory reusing vertices where they repeat via an index
         void createIndexBuffer(void);
-        void createUniformBuffer(void);
+
+        // Creates uniform buffers for...
+        // Model matrices
+        // View/project matrices
+        void createUniformBuffers(void);
+
         void createDescriptorPool(void);
         void createDescriptorSets(void);
         void createBuffer(VkDeviceSize size,
@@ -145,6 +159,10 @@ private:
                          VkMemoryPropertyFlags properties,
                          VkImage &image,
                          VkDeviceMemory &imageMemory);
+        // Will contain loading of all the entity types
+        // As well as allocating a buffer which will contain
+        // The model, view and project matrices of each instance of such types
+        void loadEntities(void);
         // Returns a command buffer that has been initialized
         // with vkCmdBeginCommandBuffer
         VkCommandBuffer beginSingleCommands(void);
@@ -160,7 +178,6 @@ private:
                                VkImage image,
                                uint32_t width,
                                uint32_t height);
-        void updateUniformBuffer(uint32_t bufferIndex);
 
         // Frees binded resources for recreation
         void cleanupSwapChain(void);
@@ -207,6 +224,8 @@ private:
         uint32_t deviceCount = 0;
         const float queuePrio = 1.0f;
 
+        Camera camera;
+
         /*
                 ** Models
                 ** These objects instantiate what defines a specific type of model
@@ -228,6 +247,9 @@ private:
         // This function takes a ModelClass ptr to read it's vertex data and other info
         void processModelData(ModelClass *modelObj);
 
+        void updateUniformModelBuffer(uint32_t imageIndex);
+        void updateUniformVPBuffer(uint32_t imageIndex);
+
         // -- Vulkan objects --
 
         // the device handle is stored in deviceInfoList
@@ -245,13 +267,30 @@ private:
         VkSurfaceKHR m_Surface;        // handle to window surface
         VkSwapchainKHR m_Swap;         // handle to swap chain
         VkCommandPool m_CommandPool;   // pool that holds commands to execute on gpu
+        
+        // 256 MB buffer defining
+        // all vertices for each model type
         VkBuffer m_VertexBuffer;       // gpu local memory, not accessible with vkmap
         VkDeviceMemory m_VertexMemory; // ditto
+        
+        // 100 MB buffer
         VkBuffer m_IndexBuffer;
         VkDeviceMemory m_IndexMemory;
+
+        // Contains the Model matrices of all entities
+        // Going to start with 20 MB size for now
+        std::vector<VkBuffer> m_UniformModelBuffers;
+        std::vector<VkDeviceMemory> m_UniformModelMemories;
+        std::vector<void*> m_UniformModelPtrs;
+
+        std::vector<VkBuffer> m_UniformVPBuffers;
+        std::vector<VkDeviceMemory> m_UniformVPMemories;
+        std::vector<void*> m_UniformVPPtrs;
+
         VkImage m_TextureImage;
         VkDeviceMemory m_TextureMemory;
         VkImageView m_TextureImageView;
+
         VkSampler m_TextureSampler;
 
         /*
@@ -271,11 +310,6 @@ private:
         std::vector<VkImageView> m_SwapViews;
         std::vector<VkFramebuffer> m_Framebuffers;
         std::vector<VkCommandBuffer> m_CommandBuffers;
-        // Uniform buffers are updated on near per frame basis
-        // Multiple are created to avoid updating data while a frame is still in flight
-        // Uniform buffers contain data such as model, view and project matrices
-        std::vector<VkBuffer> m_UniformBuffers;
-        std::vector<VkDeviceMemory> m_UniformMemory;
 
         VkPipeline m_Pipeline;
         VkRenderPass m_RenderPass;

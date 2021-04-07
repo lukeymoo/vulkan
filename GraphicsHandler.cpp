@@ -17,6 +17,7 @@ GraphicsHandler::Exception::~Exception(void)
 }
 
 GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
+    : Human("Human")
 {
   display = dsp;
   window = wnd;
@@ -31,12 +32,28 @@ GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
   m_Surface = nullptr;
   m_Swap = nullptr;
   m_CommandPool = nullptr;
+
   m_VertexBuffer = nullptr;
   m_VertexMemory = nullptr;
   m_IndexBuffer = nullptr;
   m_IndexMemory = nullptr;
+
+  // model buffers/memories
+  std::fill(m_UniformModelBuffers.begin(), m_UniformModelBuffers.end(), nullptr);
+  std::fill(m_UniformModelMemories.begin(), m_UniformModelMemories.end(), nullptr);
+
+  // View/projection buffers/memories
+  std::fill(m_UniformVPBuffers.begin(), m_UniformVPBuffers.end(), nullptr);
+  std::fill(m_UniformVPMemories.begin(), m_UniformVPMemories.end(), nullptr);
+
+  // Mapped ptrs
+  std::fill(m_UniformModelPtrs.begin(), m_UniformModelPtrs.end(), nullptr);
+  std::fill(m_UniformVPPtrs.begin(), m_UniformVPPtrs.end(), nullptr);
+
   m_TextureImage = nullptr;
+  m_TextureMemory = nullptr;
   m_TextureImageView = nullptr;
+  m_TextureSampler = nullptr;
   std::fill(m_imageAvailableSemaphore.begin(),
             m_imageAvailableSemaphore.end(), nullptr);
   std::fill(m_renderFinishedSemaphore.begin(),
@@ -47,8 +64,6 @@ GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
   std::fill(m_SwapViews.begin(), m_SwapViews.end(), nullptr);
   std::fill(m_Framebuffers.begin(), m_Framebuffers.end(), nullptr);
   std::fill(m_CommandBuffers.begin(), m_CommandBuffers.end(), nullptr);
-  std::fill(m_UniformBuffers.begin(), m_UniformBuffers.end(), nullptr);
-  std::fill(m_UniformMemory.begin(), m_UniformMemory.end(), nullptr);
   m_Pipeline = nullptr;
   m_PipelineLayout = nullptr;
   m_DescriptorLayout = nullptr;
@@ -101,26 +116,95 @@ GraphicsHandler::~GraphicsHandler()
   {
     vkDestroyDescriptorSetLayout(m_Device, m_DescriptorLayout, nullptr);
   }
-  // Cleanup buffer
+
+  /* Vertex buffer/memory */
   if (m_VertexBuffer != VK_NULL_HANDLE)
   {
     vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
   }
-  // Now release buffer memory
   if (m_VertexMemory != VK_NULL_HANDLE)
   {
     vkFreeMemory(m_Device, m_VertexMemory, nullptr);
   }
-  // Cleanup buffer
+
+  /* Index buffer/memory */
   if (m_IndexBuffer != VK_NULL_HANDLE)
   {
     vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-    // release memory
   }
   if (m_VertexMemory != VK_NULL_HANDLE)
   {
     vkFreeMemory(m_Device, m_IndexMemory, nullptr);
   }
+
+  /* Uniform buffers */
+
+  // UNMAP all MODEL MEMORIES
+  if (!m_UniformModelMemories.empty())
+  {
+    for (auto &memory : m_UniformModelMemories)
+    {
+      vkUnmapMemory(m_Device, memory);
+    }
+  }
+
+  // UNMAP all V/P MEMORIES
+  if (!m_UniformVPMemories.empty())
+  {
+    for (auto &memory : m_UniformVPMemories)
+    {
+      vkUnmapMemory(m_Device, memory);
+    }
+  }
+
+  // Destroy all MODEL BUFFERS
+  if (!m_UniformModelBuffers.empty())
+  {
+    for (auto &buffer : m_UniformModelBuffers)
+    {
+      if (buffer != VK_NULL_HANDLE)
+      {
+        vkDestroyBuffer(m_Device, buffer, nullptr);
+      }
+    }
+  }
+
+  // Free all MODEL MEMORIES
+  if (!m_UniformModelMemories.empty())
+  {
+    for (auto &memory : m_UniformModelMemories)
+    {
+      if (memory != VK_NULL_HANDLE)
+      {
+        vkFreeMemory(m_Device, memory, nullptr);
+      }
+    }
+  }
+
+  // Destroy all V/P BUFFERS
+  if (!m_UniformVPBuffers.empty())
+  {
+    for (auto &buffer : m_UniformVPBuffers)
+    {
+      if (buffer != VK_NULL_HANDLE)
+      {
+        vkDestroyBuffer(m_Device, buffer, nullptr);
+      }
+    }
+  }
+
+  // Free all V/P MEMORIES
+  if (!m_UniformVPMemories.empty())
+  {
+    for (auto &memory : m_UniformVPMemories)
+    {
+      if (memory != VK_NULL_HANDLE)
+      {
+        vkFreeMemory(m_Device, memory, nullptr);
+      }
+    }
+  }
+
   // Destroy m_imageAvailableSemaphore objects
   for (const auto &semaphore : m_imageAvailableSemaphore)
   {
@@ -326,20 +410,38 @@ void GraphicsHandler::initVulkan(void)
 
     Only allocates space, need to be called before createVertexBuffer()
   */
+  std::cout << "[+] Allocating " << ((INDEX_BUFFER_SIZE / 1000) / 1000)
+            << " MB for index buffer" << std::endl;
   createIndexBuffer();
 
   /*
-    Creates staging buffer and loads vertex data into it
-    then uses vulkan transfer functions to move that data into a gpu local buffer
+    Creates a device local buffer of VERTEX_BUFFER_SIZE
   */
-  std::cout << "[+] Loading model and transformation data" << std::endl;
+  std::cout << "[+] Allocating " << ((VERTEX_BUFFER_SIZE / 1000) / 1000)
+            << " MB for vertex buffer" << std::endl;
   createVertexBuffer();
 
   /*
-    Create uniform buffer which will be used by shaders to
-    perform per vertex maths
+    Creates 20 MB uniform buffer that will contain model matrix data
+    for every entity
+
+    Creates another 20 MB uniform buffer for view/project matrix data
   */
-  createUniformBuffer();
+  std::cout << "[+] Allocating " << (MAX_UNIFORM_BUFFER_SIZE / 1000)
+            << " KB for model matrix buffer" << std::endl;
+  std::cout << "[+] Allocating " << (MAX_UNIFORM_BUFFER_SIZE / 1000)
+            << " KB for view/projection matrix buffer" << std::endl;
+  createUniformBuffers();
+
+  /*
+    Loads all defined models' data into vertex, index and MVP buffers
+  */
+  std::cout << "[+] Loading models..." << std::endl;
+  loadEntities();
+
+  // Temp
+  // Add a single human element to type container
+  Human.humans.push_back(HumanClass());
 
   /*
    Describes the constraints on allocation of descriptor sets
@@ -602,6 +704,8 @@ bool GraphicsHandler::selectAdapter(void)
     // failed to find worthy device
     return false;
   }
+  // set our uniform buffer max size
+  MAX_UNIFORM_BUFFER_SIZE = deviceInfoList.at(selectedIndex).devProperties.limits.maxUniformBufferRange;
   return true;
 }
 
@@ -899,25 +1003,24 @@ void GraphicsHandler::createDescriptorSetLayout(void)
 {
   VkResult result;
 
-  // Binding for matrix transformations data
-  VkDescriptorSetLayoutBinding uboBindingInfo{};
-  uboBindingInfo.binding = 0;
-  uboBindingInfo.descriptorCount = 1;
-  uboBindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  // Describe what stage will use this
-  uboBindingInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-  // Only relevant for image sampling related bindings
-  uboBindingInfo.pImmutableSamplers = nullptr;
+  // Model matrix uniform buffer
+  VkDescriptorSetLayoutBinding uniformModelBinding{};
+  uniformModelBinding.binding = 0;
+  uniformModelBinding.descriptorCount = 1;
+  uniformModelBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformModelBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  uniformModelBinding.pImmutableSamplers = nullptr;
 
-  VkDescriptorSetLayoutBinding samplerBinding{};
-  samplerBinding.binding = 1;
-  samplerBinding.descriptorCount = 1;
-  samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-  samplerBinding.pImmutableSamplers = nullptr;
+  // View/project matrix uniform buffer
+  VkDescriptorSetLayoutBinding uniformVPBinding{};
+  uniformVPBinding.binding = 1;
+  uniformVPBinding.descriptorCount = 1;
+  uniformVPBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformVPBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  uniformVPBinding.pImmutableSamplers = nullptr;
 
   // Container for bindings pointed to in layout description
-  std::array<VkDescriptorSetLayoutBinding, 2> allBindings = {uboBindingInfo, samplerBinding};
+  std::array<VkDescriptorSetLayoutBinding, 2> allBindings = {uniformModelBinding, uniformVPBinding};
 
   // Describe creation of layout
   VkDescriptorSetLayoutCreateInfo uboLayoutInfo{};
@@ -1055,7 +1158,7 @@ void GraphicsHandler::createGraphicsPipeline(void)
   // wireframe vs fill
   rasterInfo.polygonMode = VK_POLYGON_MODE_FILL;
   rasterInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  rasterInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
   rasterInfo.depthBiasEnable = VK_FALSE;
   rasterInfo.depthBiasConstantFactor = 0.0f;
   rasterInfo.depthBiasClamp = 0.0f;
@@ -1473,37 +1576,13 @@ void GraphicsHandler::createVertexBuffer(void)
 {
   VkDeviceSize bufferSize = VERTEX_BUFFER_SIZE;
 
-// Create gpu local buffer
-#ifndef NDEBUG
-  std::cout << "[+] Allocating " << VERTEX_BUFFER_SIZE
-            << " bytes for vertex data" << std::endl;
-#endif
+  // Create buffer device local
   createBuffer(
       bufferSize,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
       m_VertexBuffer,
       m_VertexMemory);
-
-  // Now that the buffer is created call each model type's loader
-  std::pair<int, int> prevBufferOffsets = {0, 0};
-  std::pair<int, int> nextBufferOffsets = {0, 0};
-  nextBufferOffsets = Human.loadModelData(prevBufferOffsets, "Human");
-  if (nextBufferOffsets.first == -1 ||
-      nextBufferOffsets.second == -1)
-  {
-    G_EXCEPT("Model data would exceed allocated buffer limits!");
-  }
-
-  // After all model data is loaded we will pass those to an actual buffer
-  processModelData(&Human);
-
-  // Now copy staging buffer data -> gpu local vertex buffer
-  //  copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
-
-  //  // After copy, cleanup staging buffer
-  //  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-  //  vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
   return;
 }
 
@@ -1532,47 +1611,21 @@ void GraphicsHandler::createIndexBuffer(void)
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::createUniformBuffer(void)
-{
-  VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-  // Resize vector for per swap image creation
-  m_UniformBuffers.resize(m_SwapImages.size());
-  m_UniformMemory.resize(m_SwapImages.size());
-
-  // Create buffer for each image
-  for (size_t i = 0; i < m_UniformBuffers.size(); i++)
-  {
-    createBuffer(
-        bufferSize,
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        m_UniformBuffers[i],
-        m_UniformMemory[i]);
-  }
-
-  return;
-}
-
-/*
-  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
-
 void GraphicsHandler::createDescriptorPool(void)
 {
   VkResult result;
 
-  VkDescriptorPoolSize uniformBufferPool{};
-  uniformBufferPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  VkDescriptorPoolSize uniformModelPool{};
+  uniformModelPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   // We allocate a pool for each frame
-  uniformBufferPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+  uniformModelPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
 
-  VkDescriptorPoolSize imageSamplerPool{};
-  imageSamplerPool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  imageSamplerPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
+  VkDescriptorPoolSize uniformVPPool{};
+  uniformVPPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformVPPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
 
   // Container for the pool size structs
-  std::array<VkDescriptorPoolSize, 2> poolDescriptors = {uniformBufferPool, imageSamplerPool};
+  std::array<VkDescriptorPoolSize, 2> poolDescriptors = {uniformModelPool, uniformVPPool};
 
   VkDescriptorPoolCreateInfo poolInfo{};
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1625,15 +1678,25 @@ void GraphicsHandler::createDescriptorSets(void)
   for (size_t i = 0; i < m_SwapImages.size(); i++)
   {
     // Each descriptor info needs it's own descriptor set
-    VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = m_UniformBuffers[i];
-    bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(UniformBufferObject);
+    // VkDescriptorBufferInfo bufferInfo{};
+    // bufferInfo.buffer = m_UniformBuffers[i];
+    // bufferInfo.offset = 0;
+    // bufferInfo.range = sizeof(UniformBufferObject);
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler = m_TextureSampler;
-    imageInfo.imageView = m_TextureImageView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorBufferInfo uniformModelBufferInfo{};
+    uniformModelBufferInfo.buffer = m_UniformModelBuffers[i];
+    uniformModelBufferInfo.offset = 0;
+    uniformModelBufferInfo.range = sizeof(UniformModelBuffer);
+
+    VkDescriptorBufferInfo uniformVPBufferInfo{};
+    uniformVPBufferInfo.buffer = m_UniformVPBuffers[i];
+    uniformVPBufferInfo.offset = 0;
+    uniformVPBufferInfo.range = sizeof(UniformVPBuffer);
+
+    // VkDescriptorImageInfo imageInfo{};
+    // imageInfo.sampler = m_TextureSampler;
+    // imageInfo.imageView = m_TextureImageView;
+    // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // Descriptor writes container
     std::array<VkWriteDescriptorSet, 2> descriptorSets{};
@@ -1647,20 +1710,20 @@ void GraphicsHandler::createDescriptorSets(void)
     descriptorSets[0].descriptorCount = 1;
     // Depending on the type of descriptors we are creating
     // We are making buffer descriptors so we use pBufferInfo
-    descriptorSets[0].pBufferInfo = &bufferInfo;
+    descriptorSets[0].pBufferInfo = &uniformModelBufferInfo;
     descriptorSets[0].pImageInfo = nullptr;
     descriptorSets[0].pTexelBufferView = nullptr;
 
-    // Here we describe the DescriptorWrite for the image sampler
     descriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorSets[1].dstSet = m_DescriptorSets[i];
     descriptorSets[1].dstBinding = 1;
     descriptorSets[1].dstArrayElement = 0;
-    descriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorSets[1].descriptorCount = 1;
-    // Image sampler so we attach buffer info there
-    descriptorSets[1].pBufferInfo = nullptr;
-    descriptorSets[1].pImageInfo = &imageInfo;
+    // Depending on the type of descriptors we are creating
+    // We are making buffer descriptors so we use pBufferInfo
+    descriptorSets[1].pBufferInfo = &uniformVPBufferInfo;
+    descriptorSets[1].pImageInfo = nullptr;
     descriptorSets[1].pTexelBufferView = nullptr;
 
     // Update the descriptor set specified in writeInfo
@@ -1760,6 +1823,7 @@ void GraphicsHandler::createCommandBuffers(void)
     // Later optimisation will determine which SHOULD be rendered and not
 
     // Draw human entities
+    // vkCmdDraw(m_CommandBuffers[i], static_cast<uint32_t>(Human.vertices.size()), 1, 0, 0);
     vkCmdDrawIndexed(m_CommandBuffers[i],
                      static_cast<uint32_t>(Human.indices.size()),
                      1,
@@ -2417,26 +2481,6 @@ void GraphicsHandler::cleanupSwapChain(void)
   {
     vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
   }
-  // Destroy and free memory for uniform buffers
-  if (!m_UniformBuffers.empty())
-  {
-    // Buffers
-    for (const auto &buffer : m_UniformBuffers)
-    {
-      if (buffer != VK_NULL_HANDLE)
-      {
-        vkDestroyBuffer(m_Device, buffer, nullptr);
-      }
-    }
-    // Memory allocations
-    for (const auto &memory : m_UniformMemory)
-    {
-      if (memory != VK_NULL_HANDLE)
-      {
-        vkFreeMemory(m_Device, memory, nullptr);
-      }
-    }
-  }
   // Free descriptor pool
   if (m_DescriptorPool != VK_NULL_HANDLE)
   {
@@ -2506,8 +2550,6 @@ void GraphicsHandler::recreateSwapChain(void)
   createGraphicsPipeline();
 
   createFrameBuffers();
-
-  createUniformBuffer();
 
   createDescriptorPool();
 
@@ -2684,34 +2726,48 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::updateUniformBuffer(uint32_t bufferIndex)
+void GraphicsHandler::updateUniformModelBuffer(uint32_t imageIndex)
 {
-  VkResult result;
+  UniformModelBuffer um;
+
   static auto startTime = std::chrono::high_resolution_clock::now();
 
   auto currentTime = std::chrono::high_resolution_clock::now();
   float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-  UniformBufferObject ubo{};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 10.0f);
+  Human.humans.at(0).worldMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  um.model = Human.humans.at(0).worldMatrix;
+  // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  // ubo.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 10.0f);
 
   // Flip due to legacy opengl matrix inversion
   // should look into seeing whether this operation is faster on gpu side
   // or should it remain here as a cpu job
-  ubo.proj[1][1] *= -1;
+  /*
+    Flip projection matrix as such
+    proj[1][1] *= -1;
+  */
 
-  // Send the data to the uniform buffer
-  // it was created to be accessible by cpu so just use vkMap
-  void *data;
-  result = vkMapMemory(m_Device, m_UniformMemory[bufferIndex], 0, sizeof(ubo), 0, &data);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to update uniform buffer");
-  }
-  memcpy(data, &ubo, sizeof(ubo));
-  vkUnmapMemory(m_Device, m_UniformMemory[bufferIndex]);
+  // Transfer data
+  memcpy(m_UniformModelPtrs[imageIndex], &um, sizeof(UniformModelBuffer));
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+void GraphicsHandler::updateUniformVPBuffer(uint32_t imageIndex)
+{
+  UniformVPBuffer uvp;
+  // Point left hand down to visualize the axis
+  // Origin is at top left
+  uvp.view = glm::lookAt(camera.getPosition(), camera.getPosition() + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+  uvp.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 100.0f);
+  uvp.proj[1][1] *= -1;
+
+  // Transfer
+  memcpy(m_UniformVPPtrs[imageIndex], &uvp, sizeof(UniformVPBuffer));
   return;
 }
 
@@ -2941,75 +2997,166 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
 
   VkResult result;
 
-  VkBuffer stagingBuffer{};
-  VkDeviceMemory stagingMemory{};
+  VkBuffer vertexStagingBuffer{};
+  VkDeviceMemory vertexStagingMemory{};
 
-  // Create the staging buffer
+  VkBuffer indexStagingBuffer{};
+  VkDeviceMemory indexStagingMemory{};
+
+  // Create the vertex staging buffer
   createBuffer(modelObj->vertexDataSize,
                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               stagingBuffer,
-               stagingMemory);
+               vertexStagingBuffer,
+               vertexStagingMemory);
 
-  // Map the staging buffer memory at stored offset
-  // memcpy data to that region
-  void *data;
+  // Map vertex staging
+  void *vertexDataPtr;
   result = vkMapMemory(m_Device,
-                       stagingMemory,
+                       vertexStagingMemory,
                        modelObj->vertexStartOffset,
                        modelObj->vertexDataSize,
                        0,
-                       &data);
+                       &vertexDataPtr);
   if (result != VK_SUCCESS)
   {
     G_EXCEPT("Failed to map memory for processing of model data");
   }
-  // Copy the data
-  memcpy(data, modelObj->vertices.data(), modelObj->vertexDataSize);
+  // fill vertex stage
+  memcpy(vertexDataPtr, modelObj->vertices.data(), modelObj->vertexDataSize);
 
-  // Unmap staging memory
-  vkUnmapMemory(m_Device, stagingMemory);
+  // Unmap vertex staging
+  vkUnmapMemory(m_Device, vertexStagingMemory);
 
-  // Staging buffer contains the data we need
-  // Copy the staging buffer data to the device local
-  // m_VertexBuffer
-  copyBuffer(stagingBuffer, m_VertexBuffer, modelObj->vertexDataSize);
+  // Copy vertex stage -> vertex buffer
+  copyBuffer(vertexStagingBuffer, m_VertexBuffer, modelObj->vertexDataSize);
 
-  // Delete and recreate staging buffer for indices
-  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-  vkFreeMemory(m_Device, stagingMemory, nullptr);
-
-  // New stage allocated for indices size
+  // create index stage
   createBuffer(modelObj->indexDataSize,
                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               stagingBuffer,
-               stagingMemory);
+               indexStagingBuffer,
+               indexStagingMemory);
 
-  // Map staging buffer again
+  // Map index stage
+  void *indexDataPtr;
   result = vkMapMemory(m_Device,
-                       stagingMemory,
-                       modelObj->vertexStartOffset,
-                       modelObj->vertexDataSize,
+                       indexStagingMemory,
+                       modelObj->indexStartOffset,
+                       modelObj->indexDataSize,
                        0,
-                       &data);
+                       &indexDataPtr);
   if (result != VK_SUCCESS)
   {
     G_EXCEPT("Failed to map memory for processing of model data");
   }
-  // Move index data into staging
-  memcpy(data, modelObj->indices.data(), modelObj->indexDataSize);
 
-  // Copy the index data from stage to index buffer
-  std::cout << "index buffer addr " << m_IndexBuffer << std::endl;
-  copyBuffer(stagingBuffer, m_IndexBuffer, modelObj->indexDataSize);
+  // fill index stage
+  memcpy(indexDataPtr, modelObj->indices.data(), modelObj->indexDataSize);
 
-  // cleanup stage for good
-  vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-  vkFreeMemory(m_Device, stagingMemory, nullptr);
+  // unmap index stage
+  vkUnmapMemory(m_Device, indexStagingMemory);
+
+  // Copy index stage -> index buffer
+  copyBuffer(indexStagingBuffer, m_IndexBuffer, modelObj->indexDataSize);
+
+  // cleanup vertex stage
+  vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
+  vkFreeMemory(m_Device, vertexStagingMemory, nullptr);
+
+  // cleanup index stage
+  vkDestroyBuffer(m_Device, indexStagingBuffer, nullptr);
+  vkFreeMemory(m_Device, indexStagingMemory, nullptr);
   return;
 }
 
 /*
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
+
+/*
+  The index buffer and vertex buffer have been created
+
+  This will load...
+  vertex data into the vertex buffer AND
+  index data into the index buffer AND
+  MVP matrice data into an MVP buffer
+
+  Vertex and Index data are device local
+  MVP matrice data buffer is HOST_VISIBLE and can simply be written to each frame
+*/
+void GraphicsHandler::loadEntities(void)
+{
+  std::pair<int, int> prevBufferOffsets = {0, 0};
+  std::pair<int, int> nextBufferOffsets = {0, 0};
+
+  std::cout << "\tModel -> " << Human.typeName << std::endl;
+  nextBufferOffsets = Human.loadModelData(prevBufferOffsets);
+
+  if (nextBufferOffsets.first == -1 ||
+      nextBufferOffsets.second == -1)
+  {
+    G_EXCEPT("Model data would exceed allocated buffer limits!");
+  }
+
+  // After all model data is loaded we will pass those to an actual buffer
+  processModelData(&Human);
+  return;
+}
+
+/*
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+// Each entity requires 64 bytes of data for a model matrix
+// Call before loading models
+void GraphicsHandler::createUniformBuffers(void)
+{
+  VkResult result;
+
+  // Resize UNIFORM buffers/memory containers
+
+  // MODEL
+  m_UniformModelBuffers.resize(m_SwapImages.size());
+  m_UniformModelMemories.resize(m_SwapImages.size());
+  m_UniformModelPtrs.resize(m_SwapImages.size());
+
+  // V/P
+  m_UniformVPBuffers.resize(m_SwapImages.size());
+  m_UniformVPMemories.resize(m_SwapImages.size());
+  m_UniformVPPtrs.resize(m_SwapImages.size());
+
+  for (size_t i = 0; i < m_SwapImages.size(); i++)
+  {
+    // Model
+    createBuffer(MAX_UNIFORM_BUFFER_SIZE,
+                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                 m_UniformModelBuffers[i],
+                 m_UniformModelMemories[i]);
+
+    // V/P
+    createBuffer(MAX_UNIFORM_BUFFER_SIZE,
+                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                 m_UniformVPBuffers[i],
+                 m_UniformVPMemories[i]);
+
+    // Will be unmapped in destructor
+
+    // Model ptrs
+    result = vkMapMemory(m_Device, m_UniformModelMemories[i], 0, MAX_UNIFORM_BUFFER_SIZE, 0, &m_UniformModelPtrs[i]);
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to map model buffer");
+    }
+
+    // V/p ptrs
+    result = vkMapMemory(m_Device, m_UniformVPMemories[i], 0, MAX_UNIFORM_BUFFER_SIZE, 0, &m_UniformVPPtrs[i]);
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("Failed to map view/project buffer");
+    }
+  }
+  return;
+}

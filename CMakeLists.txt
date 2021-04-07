@@ -9,7 +9,8 @@ set(CMAKE_CXX_COMPILER "clang++")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./build)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(HEADERS 
+set(HEADERS
+    Headers/Camera.h
     Headers/Models.h
     Headers/Primitives.h
     Headers/GraphicsHandler.h
@@ -17,6 +18,7 @@ set(HEADERS
     Headers/WindowHandler.h)
 
 set(SOURCES
+    Camera.cpp
     Models.cpp
     Primitives.cpp
     GraphicsHandler.cpp
@@ -24,7 +26,7 @@ set(SOURCES
     WindowHandler.cpp
     main.cpp)
 
-add_compile_options(-Wall -std=c++20 -m64 -O2)
+add_compile_options(-Wall -std=c++20 -m64 -O2 -g)
 
 add_executable(main ${HEADERS} ${SOURCES})
 

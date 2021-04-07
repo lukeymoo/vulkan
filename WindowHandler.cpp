@@ -113,12 +113,16 @@ void WindowHandler::go(void)
 					** WASD & SPACE key PRESS handling
 					*/
 					if (XLookupKeysym(&event.xkey, 0) == XK_w) {
+						gfx->camera.moveForward();
 					}
 					if (XLookupKeysym(&event.xkey, 0) == XK_a) {
+						gfx->camera.rotateLeft();
 					}
 					if (XLookupKeysym(&event.xkey, 0) == XK_s) {
+						gfx->camera.moveBackward();
 					}
 					if (XLookupKeysym(&event.xkey, 0) == XK_d) {
+						gfx->camera.rotateRight();
 					}
 					if (XLookupKeysym(&event.xkey, 0) == XK_space) {
 					}
@@ -206,8 +210,9 @@ void WindowHandler::draw(size_t currentFrame) {
 			break;
 	}
 
-	// Update our uniform buffer before drawing
-	gfx->updateUniformBuffer(imageIndex);
+	// Update our uniform buffers before drawing
+	gfx->updateUniformModelBuffer(imageIndex);
+	gfx->updateUniformVPBuffer(imageIndex);
 
 	// If image still use, wait for it
 	if (gfx->m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {

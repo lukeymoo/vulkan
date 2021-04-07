@@ -18,7 +18,9 @@ Uses Primitives defined in Primitives.h
 // Total allocation for static vertex and index information
 // Data stored in buffers allocated with these constants define MODELS themselves
 const int VERTEX_BUFFER_SIZE = 256000000; // 256 MB
-const int INDEX_BUFFER_SIZE = 256000000;  // 256 MB
+const int INDEX_BUFFER_SIZE = 100000000;  // 100 MB
+// Max uniform buffer size is defined later
+// each graphics device has max which we cannot exceed
 
 class HumanClass
 {
@@ -26,8 +28,11 @@ public:
   HumanClass(void);
   ~HumanClass(void);
 
-  // Each player class will have it's own uniform buffer, tex coord
-  // and color data
+  /* Model matrix */
+  // Applied to model TYPE vertex data
+  // to achieve a position in WORLD
+  glm::vec3 position;
+  glm::mat4 worldMatrix;
 };
 
 class ModelClass
@@ -35,11 +40,11 @@ class ModelClass
 public:
   // Will handle loading model data
   ModelClass(std::string modelTypeName);
-  ModelClass(void);
+  ModelClass(void) = delete;
   ~ModelClass(void);
 
   // safety
-  ModelClass& operator=(const ModelClass&) = delete;
+  ModelClass &operator=(const ModelClass &) = delete;
 
   // These offsets help each object type track it's own
   // location in memory; These offsets can be passed to
@@ -53,7 +58,7 @@ public:
   std::string typeName;
 
   // Returns offsets for VERTEX, INDEX buffer respectively
-  std::pair<int, int> loadModelData(std::pair<int, int> vertexAndIndexBufferOffsets, std::string modelTypeName);
+  std::pair<int, int> loadModelData(std::pair<int, int> vertexAndIndexBufferOffsets);
 
   /*
         ** Humans share the same vertex/index data
@@ -63,8 +68,8 @@ public:
          */
   std::vector<HumanClass> humans;
 
+  // Describe this model TYPE
   std::vector<Vertex> vertices;
-
   std::vector<uint16_t> indices;
 };
 
