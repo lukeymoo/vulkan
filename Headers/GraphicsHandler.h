@@ -6,6 +6,7 @@
 #define VK_USE_PLATFORM_XLIB_KHR
 
 #include <X11/Xutil.h>
+#include <X11/XKBlib.h>
 #include <algorithm>
 #include <vector>
 #include <iostream>
@@ -16,6 +17,8 @@
 
 #include "ExceptionHandler.h"
 #include "Models.h"
+#include "Keyboard.h"
+#include "Mouse.h"
 #include "Camera.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -31,7 +34,8 @@ const std::vector<const char *> requestedInstanceExtensions = {
     "VK_KHR_xlib_surface"};
 
 const std::vector<const char *> requestedDeviceExtensions = {
-    "VK_KHR_swapchain"};
+    "VK_KHR_swapchain",
+    "VK_EXT_extended_dynamic_state"};
 
 // Uncomment to disable debugging
 //#define NDEBUG
@@ -59,8 +63,9 @@ struct DEVICEINFO
         // list of all queue families this device supports
         std::vector<VkQueueFamilyProperties> queueFamiles;
 
-        VkPhysicalDeviceProperties devProperties{};
-        VkPhysicalDeviceFeatures devFeatures{};
+        VkPhysicalDeviceProperties2 devProperties{};
+        VkPhysicalDeviceFeatures2 devFeatures{};
+        VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedFeatures{};
 };
 
 struct SwapChainSupportDetails
@@ -128,10 +133,10 @@ private:
         void createTextureImage(void);
         void createTextureImageView(void);
         void createTextureSampler(void);
-        
+
         void createCommandBuffers(void);
         void createSyncObjects(void);
-        
+
         // Contains defined vertices
         void createVertexBuffer(void);
 
@@ -197,7 +202,7 @@ private:
         SwapChainSupportDetails querySwapChainSupport(void);
         VkShaderModule createShaderModule(const std::vector<char> &code);
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dstOffset, VkDeviceSize size);
         VkImageView createImageView(VkImage image, VkFormat);
 
         /*
@@ -207,6 +212,10 @@ private:
         PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT;
         PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT;
         PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessageEXT;
+
+        // Functions provided by device level extensions
+        bool loadDevicePFN(void);
+        PFN_vkCmdSetPrimitiveTopologyEXT vkCmdSetPrimitiveTopologyEXT;
 
         /*
                   If these functions fail they will return a list of all requests that failed
@@ -220,11 +229,26 @@ private:
         bool checkInstanceExtensionSupport(std::string *failList);
         bool checkDeviceExtensionSupport(std::string *failList);
 
+        /*
+                Creates a basic grid to render to help orient self in app debugging
+                Does not use indexes, just regular draw call
+        */
+        std::vector<Vertex> grid;
+        uint gridVertexDataSize;
+        uint gridStartOffset;
+        uint gridEndOffset;
+        void createGridVertices(void);
+        // This function will not use the second parameter in the return value!
+        // The second parameter is for index offset use
+        // When drawing these vertices vkDrawIndexed will NOT be used
+        std::pair<int, int> loadGridVertices(std::pair<int, int> prevOffsets);
+        void processGridData(void);
+
 private:
         uint32_t deviceCount = 0;
         const float queuePrio = 1.0f;
 
-        Camera camera;
+        std::unique_ptr<Camera> camera;
 
         /*
                 ** Models
@@ -264,15 +288,15 @@ private:
         VkQueue m_GraphicsQueue; // graphics command queue handle
         // present queue <- most likely points to same queue as GraphicsQueue
         VkQueue m_PresentQueue;
-        VkSurfaceKHR m_Surface;        // handle to window surface
-        VkSwapchainKHR m_Swap;         // handle to swap chain
-        VkCommandPool m_CommandPool;   // pool that holds commands to execute on gpu
-        
+        VkSurfaceKHR m_Surface;      // handle to window surface
+        VkSwapchainKHR m_Swap;       // handle to swap chain
+        VkCommandPool m_CommandPool; // pool that holds commands to execute on gpu
+
         // 256 MB buffer defining
         // all vertices for each model type
         VkBuffer m_VertexBuffer;       // gpu local memory, not accessible with vkmap
         VkDeviceMemory m_VertexMemory; // ditto
-        
+
         // 100 MB buffer
         VkBuffer m_IndexBuffer;
         VkDeviceMemory m_IndexMemory;
@@ -281,11 +305,11 @@ private:
         // Going to start with 20 MB size for now
         std::vector<VkBuffer> m_UniformModelBuffers;
         std::vector<VkDeviceMemory> m_UniformModelMemories;
-        std::vector<void*> m_UniformModelPtrs;
+        std::vector<void *> m_UniformModelPtrs;
 
         std::vector<VkBuffer> m_UniformVPBuffers;
         std::vector<VkDeviceMemory> m_UniformVPMemories;
-        std::vector<void*> m_UniformVPPtrs;
+        std::vector<void *> m_UniformVPPtrs;
 
         VkImage m_TextureImage;
         VkDeviceMemory m_TextureMemory;

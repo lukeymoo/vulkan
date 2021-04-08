@@ -11,7 +11,11 @@
 */
 layout(binding = 0) uniform uniformModelBuffer {
 	mat4 model;
-} m;
+} m; // Converting this to push constant
+
+layout(push_constant) uniform pushConstant {
+	mat4 model;
+} pConst;
 
 layout(binding = 1) uniform viewProjectionBuffer {
 	mat4 view;
@@ -28,25 +32,8 @@ layout(location = 1) in vec4 inColor;
 /* OUTPUT */
 layout(location = 0) out vec4 fragColor;
 
-struct testTriangle {
-	vec3 pos;
-	vec4 color;
-};
-
-vec3 hp[3] = {
-	{-0.5f, -0.5f, 0.0f},
-	{ 0.5f, -0.5f, 0.0f},
-	{ 0.5f,  0.5f, 0.0f}
-};
-
-vec4 colors[3] = {
-	{1.0f, 0.0f, 0.0f, 1.0f},
-	{0.0f, 1.0f, 0.0f, 1.0f},
-	{0.0f, 0.0f, 1.0f, 1.0f}
-};
-
 void main() {
-	gl_Position = vp.proj * vp.view * m.model * vec4(inPosition, 1.0);
+	gl_Position = vp.proj * vp.view * pConst.model * vec4(inPosition, 1.0);
 	// if(inPosition[0] == 0 || inPosition[1] == 0 || inPosition[2] == 0) {
 	// 	gl_Position = vec4(hp[gl_VertexIndex], 1.0);
 	// } else {

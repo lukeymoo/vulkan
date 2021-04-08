@@ -50,8 +50,8 @@ public:
   // location in memory; These offsets can be passed to
   // vulkan binding functions and subsequently the shader
   // Vertex offset for vertex buffer, etc
-  int vertexStartOffset = 0;
-  int indexStartOffset = 0;
+  uint vertexStartOffset = 0;
+  uint indexStartOffset = 0;
 
   int vertexDataSize = 0;
   int indexDataSize = 0;

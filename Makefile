@@ -204,6 +204,33 @@ GraphicsHandler.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/GraphicsHandler.cpp.s
 .PHONY : GraphicsHandler.cpp.s
 
+Keyboard.o: Keyboard.cpp.o
+
+.PHONY : Keyboard.o
+
+# target to build an object file
+Keyboard.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Keyboard.cpp.o
+.PHONY : Keyboard.cpp.o
+
+Keyboard.i: Keyboard.cpp.i
+
+.PHONY : Keyboard.i
+
+# target to preprocess a source file
+Keyboard.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Keyboard.cpp.i
+.PHONY : Keyboard.cpp.i
+
+Keyboard.s: Keyboard.cpp.s
+
+.PHONY : Keyboard.s
+
+# target to generate assembly for a file
+Keyboard.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Keyboard.cpp.s
+.PHONY : Keyboard.cpp.s
+
 Models.o: Models.cpp.o
 
 .PHONY : Models.o
@@ -230,6 +257,33 @@ Models.s: Models.cpp.s
 Models.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Models.cpp.s
 .PHONY : Models.cpp.s
+
+Mouse.o: Mouse.cpp.o
+
+.PHONY : Mouse.o
+
+# target to build an object file
+Mouse.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Mouse.cpp.o
+.PHONY : Mouse.cpp.o
+
+Mouse.i: Mouse.cpp.i
+
+.PHONY : Mouse.i
+
+# target to preprocess a source file
+Mouse.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Mouse.cpp.i
+.PHONY : Mouse.cpp.i
+
+Mouse.s: Mouse.cpp.s
+
+.PHONY : Mouse.s
+
+# target to generate assembly for a file
+Mouse.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Mouse.cpp.s
+.PHONY : Mouse.cpp.s
 
 Primitives.o: Primitives.cpp.o
 
@@ -330,9 +384,15 @@ help:
 	@echo "... GraphicsHandler.o"
 	@echo "... GraphicsHandler.i"
 	@echo "... GraphicsHandler.s"
+	@echo "... Keyboard.o"
+	@echo "... Keyboard.i"
+	@echo "... Keyboard.s"
 	@echo "... Models.o"
 	@echo "... Models.i"
 	@echo "... Models.s"
+	@echo "... Mouse.o"
+	@echo "... Mouse.i"
+	@echo "... Mouse.s"
 	@echo "... Primitives.o"
 	@echo "... Primitives.i"
 	@echo "... Primitives.s"

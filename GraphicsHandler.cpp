@@ -354,6 +354,10 @@ void GraphicsHandler::initVulkan(void)
   std::cout << "[+] Creating logical device and queues" << std::endl;
   createLogicalDeviceAndQueues();
 
+  // Load our device level PFN functions
+  std::cout << "[+] Loading dynamic state functions" << std::endl;
+  loadDevicePFN();
+
   /*
     Creates swap chain, retreives images and then creates views for all of them
   */
@@ -433,6 +437,10 @@ void GraphicsHandler::initVulkan(void)
             << " KB for view/projection matrix buffer" << std::endl;
   createUniformBuffers();
 
+#ifndef NDEBUG
+  createGridVertices();
+#endif
+
   /*
     Loads all defined models' data into vertex, index and MVP buffers
   */
@@ -470,6 +478,9 @@ void GraphicsHandler::initVulkan(void)
   */
   std::cout << "[+] Creating synchronization resources" << std::endl;
   createSyncObjects();
+
+  // Create the camera
+  camera = std::make_unique<Camera>(selectedSwapExtent.width, selectedSwapExtent.height);
 
   return;
 }
@@ -550,6 +561,9 @@ void GraphicsHandler::createInstance(void)
     G_EXCEPT("Failed to create debug messenger");
   }
 
+  // Load in our KHR functions
+  // Provided by instance level extensions
+  // loadInstancePFN();
   return;
 }
 
@@ -604,11 +618,17 @@ bool GraphicsHandler::selectAdapter(void)
     */
     memset(&deviceInfoList.at(i).devProperties,
            0,
-           sizeof(VkPhysicalDeviceProperties));
+           sizeof(VkPhysicalDeviceProperties2));
 
     memset(&deviceInfoList.at(i).devFeatures,
            0,
-           sizeof(VkPhysicalDeviceFeatures));
+           sizeof(VkPhysicalDeviceFeatures2));
+
+    deviceInfoList.at(i).devProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    deviceInfoList.at(i).devFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    // Ensure pNext is pointing to dynamic state container
+    deviceInfoList.at(i).extendedFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+    deviceInfoList.at(i).devFeatures.pNext = &deviceInfoList.at(i).extendedFeatures;
 
     // get infos
     /*
@@ -617,16 +637,16 @@ bool GraphicsHandler::selectAdapter(void)
 
       m_PhysicalDevice can be used after rateDevice() has been successfully called
     */
-    vkGetPhysicalDeviceProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
+    vkGetPhysicalDeviceProperties2(
+        deviceInfoList.at(i).devHandle,
         &deviceInfoList.at(i).devProperties);
 
-    vkGetPhysicalDeviceFeatures(
-        deviceInfoList.at(selectedIndex).devHandle,
+    vkGetPhysicalDeviceFeatures2(
+        deviceInfoList.at(i).devHandle,
         &deviceInfoList.at(i).devFeatures);
 
     // Check if dedicated gpu
-    if (deviceInfoList.at(i).devProperties.deviceType ==
+    if (deviceInfoList.at(i).devProperties.properties.deviceType ==
         VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
     {
       deviceInfoList.at(i).rating += 1000;
@@ -634,7 +654,7 @@ bool GraphicsHandler::selectAdapter(void)
 
     // add max image dimension to rating
     deviceInfoList.at(i).rating +=
-        deviceInfoList.at(i).devProperties.limits.maxImageDimension2D;
+        deviceInfoList.at(i).devProperties.properties.limits.maxImageDimension2D;
 
     // get supported queue families
     vkGetPhysicalDeviceQueueFamilyProperties(
@@ -649,13 +669,11 @@ bool GraphicsHandler::selectAdapter(void)
     }
 
     // resize queue storage
-    deviceInfoList.at(i).queueFamiles.resize(
-        deviceInfoList.at(i).queueFamilyCount);
+    deviceInfoList.at(i).queueFamiles.resize(deviceInfoList.at(i).queueFamilyCount);
     // fetch all the queues and place into our custom struct
-    vkGetPhysicalDeviceQueueFamilyProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).queueFamilyCount,
-        deviceInfoList.at(i).queueFamiles.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(deviceInfoList.at(selectedIndex).devHandle,
+                                             &deviceInfoList.at(i).queueFamilyCount,
+                                             deviceInfoList.at(i).queueFamiles.data());
 
     // ensure device supports VK_QUEUE_GRAPHICS_BIT
     bool hasGraphics = false;
@@ -678,7 +696,7 @@ bool GraphicsHandler::selectAdapter(void)
     }
 
     // Ensure it has shaders
-    if (!deviceInfoList.at(i).devFeatures.geometryShader)
+    if (!deviceInfoList.at(i).devFeatures.features.geometryShader)
     {
       deviceInfoList.at(i).rating = 0;
       continue;
@@ -705,7 +723,8 @@ bool GraphicsHandler::selectAdapter(void)
     return false;
   }
   // set our uniform buffer max size
-  MAX_UNIFORM_BUFFER_SIZE = deviceInfoList.at(selectedIndex).devProperties.limits.maxUniformBufferRange;
+  MAX_UNIFORM_BUFFER_SIZE =
+      deviceInfoList.at(selectedIndex).devProperties.properties.limits.maxUniformBufferRange;
   return true;
 }
 
@@ -817,20 +836,20 @@ void GraphicsHandler::createLogicalDeviceAndQueues(void)
   // past into creation of logical device
   VkDeviceCreateInfo logicalDeviceCreateInfo{};
   logicalDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  logicalDeviceCreateInfo.pQueueCreateInfos =
-      queueCreateInfos.data(); // -- pass here
-  logicalDeviceCreateInfo.queueCreateInfoCount =
-      static_cast<uint32_t>(queueCreateInfos.size());
-  logicalDeviceCreateInfo.pEnabledFeatures =
-      &deviceInfoList.at(selectedIndex).devFeatures;
+  logicalDeviceCreateInfo.pNext = &deviceInfoList.at(selectedIndex).devFeatures;
+
+  logicalDeviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+  logicalDeviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+  // logicalDeviceCreateInfo.pEnabledFeatures = &deviceInfoList.at(selectedIndex).devFeatures.features;
+  logicalDeviceCreateInfo.pEnabledFeatures = nullptr; // if pNext is vkPhysicalDeviceFeatures2 then must be nullptr
+
   // device level layers deprecated
   logicalDeviceCreateInfo.enabledLayerCount = 0;
-  // device level layers deprecated
   logicalDeviceCreateInfo.ppEnabledLayerNames = nullptr;
-  logicalDeviceCreateInfo.enabledExtensionCount =
-      static_cast<uint32_t>(requestedDeviceExtensions.size());
-  logicalDeviceCreateInfo.ppEnabledExtensionNames =
-      requestedDeviceExtensions.data();
+
+  logicalDeviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requestedDeviceExtensions.size());
+  logicalDeviceCreateInfo.ppEnabledExtensionNames = requestedDeviceExtensions.data();
 
   // Create logical device
   result = vkCreateDevice(m_PhysicalDevice,
@@ -1007,7 +1026,7 @@ void GraphicsHandler::createDescriptorSetLayout(void)
   VkDescriptorSetLayoutBinding uniformModelBinding{};
   uniformModelBinding.binding = 0;
   uniformModelBinding.descriptorCount = 1;
-  uniformModelBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformModelBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
   uniformModelBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   uniformModelBinding.pImmutableSamplers = nullptr;
 
@@ -1015,7 +1034,7 @@ void GraphicsHandler::createDescriptorSetLayout(void)
   VkDescriptorSetLayoutBinding uniformVPBinding{};
   uniformVPBinding.binding = 1;
   uniformVPBinding.descriptorCount = 1;
-  uniformVPBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformVPBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
   uniformVPBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   uniformVPBinding.pImmutableSamplers = nullptr;
 
@@ -1110,13 +1129,17 @@ void GraphicsHandler::createGraphicsPipeline(void)
       static_cast<uint32_t>(attributeDescription.size());
   vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
+  /*
+    IGNORED WHEN `VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT` IS SET
+    and pointed to with pDynamicState in the pipeline create info struct
+  */
   // describe the type of geometry vulkan will be drawing
   VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
   inputAssemblyInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
   inputAssemblyInfo.pNext = nullptr;
   inputAssemblyInfo.flags = 0;
-  inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
   inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
   // configure viewport ( what portion of frame buffer to render to )
@@ -1226,13 +1249,19 @@ void GraphicsHandler::createGraphicsPipeline(void)
 
   // Describe pipeline layout creation
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+
+  VkPushConstantRange pConstantRange;
+  pConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pConstantRange.size = sizeof(UniformModelBuffer);
+  pConstantRange.offset = 0;
+
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipelineLayoutInfo.pNext = nullptr;
   pipelineLayoutInfo.flags = 0;
   pipelineLayoutInfo.setLayoutCount = 1;
   pipelineLayoutInfo.pSetLayouts = &m_DescriptorLayout;
-  pipelineLayoutInfo.pushConstantRangeCount = 0;
-  pipelineLayoutInfo.pPushConstantRanges = nullptr;
+  pipelineLayoutInfo.pushConstantRangeCount = 1;
+  pipelineLayoutInfo.pPushConstantRanges = &pConstantRange;
 
   // Create pipeline layout
   result = vkCreatePipelineLayout(m_Device,
@@ -1248,6 +1277,14 @@ void GraphicsHandler::createGraphicsPipeline(void)
   createRenderPass();
 
   // describe pipeline object creation
+  VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
+  std::vector<VkDynamicState> dStates = {VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT};
+  dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamicStateInfo.pNext = nullptr;
+  dynamicStateInfo.flags = 0;
+  dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dStates.size());
+  dynamicStateInfo.pDynamicStates = dStates.data();
+
   VkGraphicsPipelineCreateInfo pipelineInfo{};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.pNext = nullptr;
@@ -1255,14 +1292,21 @@ void GraphicsHandler::createGraphicsPipeline(void)
   pipelineInfo.stageCount = 2;
   pipelineInfo.pStages = pipelineStages;
   pipelineInfo.pVertexInputState = &vertexInputInfo;
+
+  // Using dynamic state for input assembly!
+  // Set to nullptr when doing so
   pipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
+
   pipelineInfo.pTessellationState = nullptr;
   pipelineInfo.pViewportState = &viewportStateInfo;
   pipelineInfo.pRasterizationState = &rasterInfo;
   pipelineInfo.pMultisampleState = &multisamplingInfo;
   pipelineInfo.pDepthStencilState = &depthStencilInfo;
   pipelineInfo.pColorBlendState = &colorBlendingInfo;
-  pipelineInfo.pDynamicState = nullptr;
+
+  // Don't forget dynamic set enabling!
+  pipelineInfo.pDynamicState = &dynamicStateInfo;
+
   pipelineInfo.layout = m_PipelineLayout;
   pipelineInfo.renderPass = m_RenderPass;
   pipelineInfo.subpass = 0; // sub pass index
@@ -1522,9 +1566,9 @@ void GraphicsHandler::createTextureSampler(void)
   samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
   samplerInfo.mipLodBias = 0;
   samplerInfo.anisotropyEnable =
-      (deviceInfoList.at(selectedIndex).devFeatures.samplerAnisotropy) ? VK_TRUE : VK_FALSE;
+      (deviceInfoList.at(selectedIndex).devFeatures.features.samplerAnisotropy) ? VK_TRUE : VK_FALSE;
   samplerInfo.maxAnisotropy =
-      deviceInfoList.at(selectedIndex).devProperties.limits.maxSamplerAnisotropy;
+      deviceInfoList.at(selectedIndex).devProperties.properties.limits.maxSamplerAnisotropy;
   samplerInfo.compareEnable = VK_FALSE;
   samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
   samplerInfo.minLod = 0.0f;
@@ -1616,12 +1660,11 @@ void GraphicsHandler::createDescriptorPool(void)
   VkResult result;
 
   VkDescriptorPoolSize uniformModelPool{};
-  uniformModelPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  // We allocate a pool for each frame
+  uniformModelPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
   uniformModelPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
 
   VkDescriptorPoolSize uniformVPPool{};
-  uniformVPPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniformVPPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
   uniformVPPool.descriptorCount = static_cast<uint32_t>(m_SwapImages.size());
 
   // Container for the pool size structs
@@ -1693,11 +1736,6 @@ void GraphicsHandler::createDescriptorSets(void)
     uniformVPBufferInfo.offset = 0;
     uniformVPBufferInfo.range = sizeof(UniformVPBuffer);
 
-    // VkDescriptorImageInfo imageInfo{};
-    // imageInfo.sampler = m_TextureSampler;
-    // imageInfo.imageView = m_TextureImageView;
-    // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
     // Descriptor writes container
     std::array<VkWriteDescriptorSet, 2> descriptorSets{};
 
@@ -1706,10 +1744,8 @@ void GraphicsHandler::createDescriptorSets(void)
     descriptorSets[0].dstSet = m_DescriptorSets[i];
     descriptorSets[0].dstBinding = 0;
     descriptorSets[0].dstArrayElement = 0;
-    descriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     descriptorSets[0].descriptorCount = 1;
-    // Depending on the type of descriptors we are creating
-    // We are making buffer descriptors so we use pBufferInfo
     descriptorSets[0].pBufferInfo = &uniformModelBufferInfo;
     descriptorSets[0].pImageInfo = nullptr;
     descriptorSets[0].pTexelBufferView = nullptr;
@@ -1718,10 +1754,8 @@ void GraphicsHandler::createDescriptorSets(void)
     descriptorSets[1].dstSet = m_DescriptorSets[i];
     descriptorSets[1].dstBinding = 1;
     descriptorSets[1].dstArrayElement = 0;
-    descriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     descriptorSets[1].descriptorCount = 1;
-    // Depending on the type of descriptors we are creating
-    // We are making buffer descriptors so we use pBufferInfo
     descriptorSets[1].pBufferInfo = &uniformVPBufferInfo;
     descriptorSets[1].pImageInfo = nullptr;
     descriptorSets[1].pTexelBufferView = nullptr;
@@ -1764,6 +1798,8 @@ void GraphicsHandler::createCommandBuffers(void)
   }
 
   // Begin recording command buffer
+  UniformModelBuffer identityMatrix;
+  identityMatrix.model = glm::mat4(1.0);
   for (size_t i = 0; i < m_CommandBuffers.size(); i++)
   {
     VkCommandBufferBeginInfo beginInfo{};
@@ -1799,6 +1835,10 @@ void GraphicsHandler::createCommandBuffers(void)
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       m_Pipeline);
 
+    // Due to using dynamic state, primitive topology must be set
+    // render pass
+    vkCmdSetPrimitiveTopologyEXT(m_CommandBuffers[i], VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+
     // Bind index buffer here
     vkCmdBindIndexBuffer(m_CommandBuffers[i],
                          m_IndexBuffer,
@@ -1806,30 +1846,44 @@ void GraphicsHandler::createCommandBuffers(void)
                          VK_INDEX_TYPE_UINT16);
     // Bind vertex buffers
     VkBuffer vertexBuffers[] = {m_VertexBuffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets);
+    std::vector<VkDeviceSize> offsets = { Human.vertexStartOffset };
+    vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets.data());
 
     // Bind our descriptor sets
+    std::vector<uint32_t> dynamicOffsets = {0, 0};
     vkCmdBindDescriptorSets(m_CommandBuffers[i],
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_PipelineLayout,
                             0,
                             1,
                             &m_DescriptorSets[i],
-                            0,
-                            nullptr);
+                            2,
+                            dynamicOffsets.data());
 
     // Iterate all objects and draw
     // Later optimisation will determine which SHOULD be rendered and not
 
     // Draw human entities
     // vkCmdDraw(m_CommandBuffers[i], static_cast<uint32_t>(Human.vertices.size()), 1, 0, 0);
+    identityMatrix.model = Human.humans.at(0).worldMatrix;
+    std::cout << "model changed!" << std::endl;
+    vkCmdPushConstants(m_CommandBuffers[i], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
     vkCmdDrawIndexed(m_CommandBuffers[i],
                      static_cast<uint32_t>(Human.indices.size()),
                      1,
                      Human.indexStartOffset,
                      Human.vertexStartOffset,
                      0);
+
+    /*
+      Rebind vertex buffer at new offset for grid data
+    */
+    offsets = { gridStartOffset };
+    vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets.data());
+
+    identityMatrix.model = glm::mat4(1.0);
+    vkCmdPushConstants(m_CommandBuffers[i], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
+    vkCmdDraw(m_CommandBuffers[i], grid.size(), 1, 0, 0);
 
     vkCmdEndRenderPass(m_CommandBuffers[i]);
 
@@ -2449,6 +2503,10 @@ std::vector<char> GraphicsHandler::readFile(std::string filename)
 
 void GraphicsHandler::cleanupSwapChain(void)
 {
+  // Reset camera object
+  // It relies on swapchain extent data
+  camera.reset();
+
   // Clean up frame buffers
   for (const auto &buffer : m_Framebuffers)
   {
@@ -2556,6 +2614,10 @@ void GraphicsHandler::recreateSwapChain(void)
   createDescriptorSets();
 
   createCommandBuffers();
+
+  // Recreate the camera
+  camera = std::make_unique<Camera>(selectedSwapExtent.width, selectedSwapExtent.height);
+
   std::cout << "\t[+] Done!" << std::endl;
   return;
 }
@@ -2701,7 +2763,7 @@ void GraphicsHandler::createImage(uint32_t width,
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dstOffset, VkDeviceSize size)
 {
   // Create command buffer and prepare for recording
   // immediately ready to record after this function
@@ -2710,7 +2772,7 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
   // Describe copy command
   VkBufferCopy copyRegion{};
   copyRegion.srcOffset = 0;
-  copyRegion.dstOffset = 0;
+  copyRegion.dstOffset = dstOffset;
   copyRegion.size = size;
 
   // Record copy command
@@ -2762,7 +2824,7 @@ void GraphicsHandler::updateUniformVPBuffer(uint32_t imageIndex)
   UniformVPBuffer uvp;
   // Point left hand down to visualize the axis
   // Origin is at top left
-  uvp.view = glm::lookAt(camera.getPosition(), camera.getPosition() + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+  uvp.view = glm::lookAt(camera->getPosition(), camera->getPosition() + camera->DEFAULT_FORWARD_VECTOR, glm::vec3(0.0f, -1.0f, 0.0f));
   uvp.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 100.0f);
   uvp.proj[1][1] *= -1;
 
@@ -2989,7 +3051,14 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 */
 
-// Loads vertex data into the buffer
+/*
+  THIS FUNCTION MUST BE CALLED AND PASSED MODELCLASS OBJECTS IN THE SAME ORDER THEY
+  ARE CALLED IN ModelClass->loadModelData()
+
+  loadModelData() GENERATES OFFSETS FROM WHAT THEY ARE GIVEN
+
+  Loads vertex data into the buffer
+*/
 void GraphicsHandler::processModelData(ModelClass *modelObj)
 {
   std::cout << "[+] Moving allocated model :: " << modelObj->typeName
@@ -3014,7 +3083,7 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
   void *vertexDataPtr;
   result = vkMapMemory(m_Device,
                        vertexStagingMemory,
-                       modelObj->vertexStartOffset,
+                       0,
                        modelObj->vertexDataSize,
                        0,
                        &vertexDataPtr);
@@ -3029,7 +3098,8 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
   vkUnmapMemory(m_Device, vertexStagingMemory);
 
   // Copy vertex stage -> vertex buffer
-  copyBuffer(vertexStagingBuffer, m_VertexBuffer, modelObj->vertexDataSize);
+  copyBuffer(vertexStagingBuffer, m_VertexBuffer, modelObj->vertexStartOffset, modelObj->vertexDataSize);
+  std::cout << "Copying vertex data into buffer at dst offset -> " << modelObj->vertexStartOffset << std::endl;
 
   // create index stage
   createBuffer(modelObj->indexDataSize,
@@ -3042,7 +3112,7 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
   void *indexDataPtr;
   result = vkMapMemory(m_Device,
                        indexStagingMemory,
-                       modelObj->indexStartOffset,
+                       0,
                        modelObj->indexDataSize,
                        0,
                        &indexDataPtr);
@@ -3058,7 +3128,8 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
   vkUnmapMemory(m_Device, indexStagingMemory);
 
   // Copy index stage -> index buffer
-  copyBuffer(indexStagingBuffer, m_IndexBuffer, modelObj->indexDataSize);
+  copyBuffer(indexStagingBuffer, m_IndexBuffer, modelObj->indexStartOffset, modelObj->indexDataSize);
+  std::cout << "Copying index data into buffer at dst offset -> " << modelObj->indexStartOffset << std::endl;
 
   // cleanup vertex stage
   vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
@@ -3092,6 +3163,8 @@ void GraphicsHandler::loadEntities(void)
 
   std::cout << "\tModel -> " << Human.typeName << std::endl;
   nextBufferOffsets = Human.loadModelData(prevBufferOffsets);
+  std::cout << "Model Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+  std::cout << "Model next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
 
   if (nextBufferOffsets.first == -1 ||
       nextBufferOffsets.second == -1)
@@ -3099,8 +3172,29 @@ void GraphicsHandler::loadEntities(void)
     G_EXCEPT("Model data would exceed allocated buffer limits!");
   }
 
+  // Update offset
+  prevBufferOffsets = nextBufferOffsets;
+
+  // Load grid vertices
+  nextBufferOffsets = loadGridVertices(prevBufferOffsets);
+  std::cout << "Grid Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+  std::cout << "Grid next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
+
+  if (nextBufferOffsets.first == -1 ||
+      nextBufferOffsets.second == -1)
+  {
+    G_EXCEPT("Grid vertices would exceed buffer limits!");
+  }
+
+  // update offset
+  prevBufferOffsets = nextBufferOffsets;
+
+  std::cout << "After grid -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+  std::cout << "After grid -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
+
   // After all model data is loaded we will pass those to an actual buffer
   processModelData(&Human);
+  processGridData();
   return;
 }
 
@@ -3159,4 +3253,104 @@ void GraphicsHandler::createUniformBuffers(void)
     }
   }
   return;
+}
+
+void GraphicsHandler::createGridVertices(void)
+{
+  // X units from origin in length
+  // From origin to X && From origin to -X
+  int gridLength = 30;
+
+  // Grid is flat against the X & Z PLANE
+  for (int i = -gridLength; i < gridLength; i++)
+  {
+    // Rows
+    grid.push_back(Vertex({{-gridLength, 0.0f, i}, {1.0f, 1.0f, 1.0f, 1.0f}}));
+    grid.push_back(Vertex({{gridLength, 0.0f, i}, {1.0f, 1.0f, 1.0f, 1.0f}}));
+
+    // Columns
+    grid.push_back(Vertex({{i, 0.0f, -gridLength}, {0.0f, 0.0f, 1.0f, 1.0f}})); // negative z - blue
+    grid.push_back(Vertex({{i, 0.0f, gridLength}, {0.0f, 1.0f, 0.0f, 1.0f}}));  // positive z - green
+  }
+
+  // Calculate vertices size
+  gridVertexDataSize = sizeof(Vertex) * grid.size();
+
+  // These vertices are loaded into a buffer by a separate function
+  // That function will be passed offsets so as maintain integrity of vertex buffer
+  return;
+}
+
+std::pair<int, int> GraphicsHandler::loadGridVertices(std::pair<int, int> previousOffsets)
+{
+  gridStartOffset = previousOffsets.first;
+  int endVertexOffset = previousOffsets.first + gridVertexDataSize;
+
+  if (endVertexOffset > VERTEX_BUFFER_SIZE)
+  {
+    std::cout << "\t[-] Self check : Grid data will exceed vertex buffer size" << std::endl;
+    return {-1, -1};
+  }
+
+  return {endVertexOffset, previousOffsets.second};
+}
+
+void GraphicsHandler::processGridData(void)
+{
+  std::cout << "[+] Loading grid vertices into buffer" << std::endl;
+
+  VkResult result;
+
+  VkBuffer vertexStagingBuffer{};
+  VkDeviceMemory vertexStagingMemory{};
+
+  // Create the vertex staging buffer
+  createBuffer(gridVertexDataSize,
+               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               vertexStagingBuffer,
+               vertexStagingMemory);
+
+  // Map vertex staging
+  void *vertexDataPtr;
+  result = vkMapMemory(m_Device,
+                       vertexStagingMemory,
+                       0,
+                       gridVertexDataSize,
+                       0,
+                       &vertexDataPtr);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to map memory for processing of grid data");
+  }
+  // fill vertex stage
+  memcpy(vertexDataPtr, grid.data(), gridVertexDataSize);
+
+  // Unmap vertex staging
+  vkUnmapMemory(m_Device, vertexStagingMemory);
+
+  // Copy vertex stage -> vertex buffer
+  copyBuffer(vertexStagingBuffer, m_VertexBuffer, gridStartOffset, gridVertexDataSize);
+  std::cout << "Copying grid data into buffer at dst offset -> " << gridStartOffset << std::endl;
+
+  // Cleanup
+  vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
+  vkFreeMemory(m_Device, vertexStagingMemory, nullptr);
+  return;
+}
+
+/* Must be called after create logical device! */
+// Device level extension functions
+bool GraphicsHandler::loadDevicePFN(void)
+{
+  PFN_vkVoidFunction fp;
+
+  fp = vkGetDeviceProcAddr(m_Device, "vkCmdSetPrimitiveTopologyEXT");
+  if (!fp)
+  {
+    G_EXCEPT("Failed to load device level extension function vkCmdSetPrimitiveTopologyEXT");
+  }
+  vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(fp);
+
+  return true;
 }

@@ -1,13 +1,14 @@
 #include "Camera.h"
 
-Camera::Camera(void)
+Camera::Camera(int extentWidth, int extentHeight)
+    : viewWidth(extentWidth), viewHeight(extentHeight)
 {
-    position = {0.0f, 0.0f, -2.0f};
-    // 1 unit forward z axis default front face
-    // later mouse will control camera angles
-    frontFace = {0.0f, 0.0f, 1.0f};
+    viewMatrix = glm::mat4(1.0);
+    projMatrix = glm::mat4(1.0);
 
-    rotationAngle = {0.0f, 0.0f, 0.0f};
+    lookAt = DEFAULT_FORWARD_VECTOR;
+
+    position = {0.0f, -3.0f, -8.0f};
     return;
 }
 
@@ -16,33 +17,6 @@ Camera::~Camera(void)
     return;
 }
 
-glm::vec3 Camera::getFront(void)
-{
-    glm::vec3 front(1.0);
-    glm::vec4 temp(1.0);
-
-    glm::mat4 rotMatrixX(1.0);
-    glm::mat4 rotMatrixY(1.0);
-    glm::mat4 rotMatrixZ(1.0);
-
-    rotMatrixX = glm::rotate(rotMatrixX, rotationAngle.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    temp = temp * rotMatrixX;
-    rotMatrixY = glm::rotate(rotMatrixY, rotationAngle.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    temp = temp * rotMatrixY;
-    rotMatrixZ = glm::rotate(rotMatrixZ, rotationAngle.z, glm::vec3(0.0f, 0.0f, 1.0f));
-    temp = temp * rotMatrixZ;
-
-    front.x = temp.x;
-    front.y = temp.y;
-    front.z = temp.z;
-
-    return front;
-}
-
-glm::vec3 Camera::getPosition(void)
-{
-    return position;
-}
 
 void Camera::moveForward(void)
 {
@@ -80,26 +54,17 @@ void Camera::moveDown(void)
     return;
 }
 
-void Camera::rotateUp(void)
+void Camera::update(void)
 {
-    rotationAngle.z -= 0.2f;
     return;
 }
 
-void Camera::rotateDown(void)
+void Camera::rotate(glm::vec3 rotateBy)
 {
-    rotationAngle.z += 0.2f;
     return;
 }
 
-void Camera::rotateLeft(void)
+glm::vec3 Camera::getPosition(void)
 {
-    rotationAngle.y -= 0.2f;
-    return;
-}
-
-void Camera::rotateRight(void)
-{
-    rotationAngle.y += 0.2f;
-    return;
+    return position;
 }

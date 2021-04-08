@@ -10,6 +10,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ./build)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(HEADERS
+    Headers/Keyboard.h
+    Headers/Mouse.h
     Headers/Camera.h
     Headers/Models.h
     Headers/Primitives.h
@@ -18,6 +20,8 @@ set(HEADERS
     Headers/WindowHandler.h)
 
 set(SOURCES
+    Keyboard.cpp
+    Mouse.cpp
     Camera.cpp
     Models.cpp
     Primitives.cpp
