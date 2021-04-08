@@ -190,6 +190,8 @@ private:
         void recreateSwapChain(void);
         void createRenderPass(void);
 
+        void recordCommandBuffer(uint32_t imageIndex);
+
         /*
                   -- HELPERS --
                   Called internally by other functions

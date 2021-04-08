@@ -1595,10 +1595,8 @@ void GraphicsHandler::createCommandPool(void)
   VkCommandPoolCreateInfo commandPoolInfo{};
   commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   commandPoolInfo.pNext = nullptr;
-  commandPoolInfo.flags = 0; // lookup flags for better control
-  // configure command pool to store graphics commands
-  commandPoolInfo.queueFamilyIndex =
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
+  commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+  commandPoolInfo.queueFamilyIndex = deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
 
   result = vkCreateCommandPool(m_Device,
                                &commandPoolInfo,
@@ -1795,103 +1793,6 @@ void GraphicsHandler::createCommandBuffers(void)
   if (result != VK_SUCCESS)
   {
     G_EXCEPT("Failed to allocate command buffers!");
-  }
-
-  // Begin recording command buffer
-  UniformModelBuffer identityMatrix;
-  identityMatrix.model = glm::mat4(1.0);
-  for (size_t i = 0; i < m_CommandBuffers.size(); i++)
-  {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.pNext = nullptr;
-    beginInfo.flags = 0;
-    beginInfo.pInheritanceInfo = nullptr;
-
-    result = vkBeginCommandBuffer(m_CommandBuffers[i], &beginInfo);
-    if (result != VK_SUCCESS)
-    {
-      G_EXCEPT("Failed to begin command buffer!");
-    }
-
-    // Begin render pass
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.pNext = nullptr;
-    renderPassInfo.renderPass = m_RenderPass;
-    renderPassInfo.framebuffer = m_Framebuffers[i];
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = selectedSwapExtent;
-
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(m_CommandBuffers[i],
-                         &renderPassInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(m_CommandBuffers[i],
-                      VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      m_Pipeline);
-
-    // Due to using dynamic state, primitive topology must be set
-    // render pass
-    vkCmdSetPrimitiveTopologyEXT(m_CommandBuffers[i], VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-
-    // Bind index buffer here
-    vkCmdBindIndexBuffer(m_CommandBuffers[i],
-                         m_IndexBuffer,
-                         0,
-                         VK_INDEX_TYPE_UINT16);
-    // Bind vertex buffers
-    VkBuffer vertexBuffers[] = {m_VertexBuffer};
-    std::vector<VkDeviceSize> offsets = { Human.vertexStartOffset };
-    vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets.data());
-
-    // Bind our descriptor sets
-    std::vector<uint32_t> dynamicOffsets = {0, 0};
-    vkCmdBindDescriptorSets(m_CommandBuffers[i],
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            m_PipelineLayout,
-                            0,
-                            1,
-                            &m_DescriptorSets[i],
-                            2,
-                            dynamicOffsets.data());
-
-    // Iterate all objects and draw
-    // Later optimisation will determine which SHOULD be rendered and not
-
-    // Draw human entities
-    // vkCmdDraw(m_CommandBuffers[i], static_cast<uint32_t>(Human.vertices.size()), 1, 0, 0);
-    identityMatrix.model = Human.humans.at(0).worldMatrix;
-    std::cout << "model changed!" << std::endl;
-    vkCmdPushConstants(m_CommandBuffers[i], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
-    vkCmdDrawIndexed(m_CommandBuffers[i],
-                     static_cast<uint32_t>(Human.indices.size()),
-                     1,
-                     Human.indexStartOffset,
-                     Human.vertexStartOffset,
-                     0);
-
-    /*
-      Rebind vertex buffer at new offset for grid data
-    */
-    offsets = { gridStartOffset };
-    vkCmdBindVertexBuffers(m_CommandBuffers[i], 0, 1, vertexBuffers, offsets.data());
-
-    identityMatrix.model = glm::mat4(1.0);
-    vkCmdPushConstants(m_CommandBuffers[i], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
-    vkCmdDraw(m_CommandBuffers[i], grid.size(), 1, 0, 0);
-
-    vkCmdEndRenderPass(m_CommandBuffers[i]);
-
-    result = vkEndCommandBuffer(m_CommandBuffers[i]);
-    if (result != VK_SUCCESS)
-    {
-      G_EXCEPT("Error ending command buffer recording");
-    }
   }
 
   return;
@@ -2392,11 +2293,12 @@ VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
 
 VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
 {
+  return VK_PRESENT_MODE_IMMEDIATE_KHR;
+  
   // application will prefer MAILBOX present mode as it is akin to
   // triple buffering with less latency
   for (const auto &presentMode : m_SurfaceDetails.presentModes)
   {
-    std::ostringstream oss;
     if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
     {
       return presentMode;
@@ -3353,4 +3255,104 @@ bool GraphicsHandler::loadDevicePFN(void)
   vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(fp);
 
   return true;
+}
+
+void GraphicsHandler::recordCommandBuffer(uint32_t imageIndex)
+{
+  VkResult result;
+
+  // Begin recording command buffer
+  UniformModelBuffer identityMatrix;
+  identityMatrix.model = glm::mat4(1.0);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.pNext = nullptr;
+  beginInfo.flags = 0;
+  beginInfo.pInheritanceInfo = nullptr;
+
+  result = vkBeginCommandBuffer(m_CommandBuffers[imageIndex], &beginInfo);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to begin command buffer!");
+  }
+
+  // Begin render pass
+  VkRenderPassBeginInfo renderPassInfo{};
+  renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  renderPassInfo.pNext = nullptr;
+  renderPassInfo.renderPass = m_RenderPass;
+  renderPassInfo.framebuffer = m_Framebuffers[imageIndex];
+  renderPassInfo.renderArea.offset = {0, 0};
+  renderPassInfo.renderArea.extent = selectedSwapExtent;
+
+  VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+  renderPassInfo.clearValueCount = 1;
+  renderPassInfo.pClearValues = &clearColor;
+
+  vkCmdBeginRenderPass(m_CommandBuffers[imageIndex],
+                       &renderPassInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(m_CommandBuffers[imageIndex],
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_Pipeline);
+
+  // Due to using dynamic state, primitive topology must be set
+  // render pass
+  vkCmdSetPrimitiveTopologyEXT(m_CommandBuffers[imageIndex], VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+
+  // Bind index buffer here
+  vkCmdBindIndexBuffer(m_CommandBuffers[imageIndex],
+                       m_IndexBuffer,
+                       0,
+                       VK_INDEX_TYPE_UINT16);
+  // Bind vertex buffers
+  VkBuffer vertexBuffers[] = {m_VertexBuffer};
+  std::vector<VkDeviceSize> offsets = {Human.vertexStartOffset};
+  vkCmdBindVertexBuffers(m_CommandBuffers[imageIndex], 0, 1, vertexBuffers, offsets.data());
+
+  // Bind our descriptor sets
+  std::vector<uint32_t> dynamicOffsets = {0, 0};
+  vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex],
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          m_PipelineLayout,
+                          0,
+                          1,
+                          &m_DescriptorSets[imageIndex],
+                          2,
+                          dynamicOffsets.data());
+
+  // Iterate all objects and draw
+  // Later optimisation will determine which SHOULD be rendered and not
+
+  // Draw human entities
+  // vkCmdDraw(m_CommandBuffers[i], static_cast<uint32_t>(Human.vertices.size()), 1, 0, 0);
+  identityMatrix.model = Human.humans.at(0).worldMatrix;
+  vkCmdPushConstants(m_CommandBuffers[imageIndex], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
+  vkCmdDrawIndexed(m_CommandBuffers[imageIndex],
+                   static_cast<uint32_t>(Human.indices.size()),
+                   1,
+                   Human.indexStartOffset,
+                   Human.vertexStartOffset,
+                   0);
+
+  /*
+      Rebind vertex buffer at new offset for grid data
+    */
+  offsets = {gridStartOffset};
+  vkCmdBindVertexBuffers(m_CommandBuffers[imageIndex], 0, 1, vertexBuffers, offsets.data());
+
+  identityMatrix.model = glm::mat4(1.0);
+  vkCmdPushConstants(m_CommandBuffers[imageIndex], m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformModelBuffer), &identityMatrix);
+  vkCmdDraw(m_CommandBuffers[imageIndex], grid.size(), 1, 0, 0);
+
+  vkCmdEndRenderPass(m_CommandBuffers[imageIndex]);
+
+  result = vkEndCommandBuffer(m_CommandBuffers[imageIndex]);
+  if (result != VK_SUCCESS)
+  {
+    G_EXCEPT("Error ending command buffer recording");
+  }
+  return;
 }

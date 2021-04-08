@@ -121,6 +121,8 @@ WindowHandler::~WindowHandler(void)
 void WindowHandler::go(void)
 {
 	size_t currentFrame = 0;
+	auto startTime = std::chrono::high_resolution_clock::now();
+	uint32_t frames = 0;
 	while (running)
 	{
 		while (XPending(display))
@@ -133,9 +135,10 @@ void WindowHandler::go(void)
 		Mouse::Event mouseEvent = mouse.read();
 
 		// Process events
-		if(mouseEvent.getType() == Mouse::Event::Type::Move) {
+		if (mouseEvent.getType() == Mouse::Event::Type::Move)
+		{
 			std::pair<int, int> mDelta = mouse.getPosDelta();
-			glm::vec4 mouseRotate = { mDelta.second * 0.8f, mDelta.first * 0.8f, 0.0f, 0.0f };
+			glm::vec4 mouseRotate = {mDelta.second * 0.8f, mDelta.first * 0.8f, 0.0f, 0.0f};
 			gfx->camera->rotate(mouseRotate);
 		}
 
@@ -158,6 +161,21 @@ void WindowHandler::go(void)
 		}
 
 		draw(currentFrame);
+
+		frames += 1;
+
+		auto endTime = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration<float, std::chrono::seconds::period>(endTime - startTime).count();
+
+		if (duration >= 0.25 && frames >= 10)
+		{
+			float fps = frames / duration;
+			std::cout << "FPS -> " << std::fixed << std::setprecision(14) << fps << std::endl;
+
+			// Reset frames/start time
+			frames = 0;
+			startTime = std::chrono::high_resolution_clock::now();
+		}
 	} // End of game loop
 
 	return;
@@ -216,6 +234,9 @@ void WindowHandler::draw(size_t currentFrame)
 	// Now mark the image as in use
 	gfx->m_imagesInFlight[imageIndex] = gfx->m_inFlightFences[currentFrame];
 
+	// Record command buffer
+	gfx->recordCommandBuffer(imageIndex);
+
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	VkSemaphore waitSemaphores[] = {gfx->m_imageAvailableSemaphore[currentFrame]};
@@ -250,6 +271,7 @@ void WindowHandler::draw(size_t currentFrame)
 	presentInfo.pResults = nullptr;
 
 	result = vkQueuePresentKHR(gfx->m_PresentQueue, &presentInfo);
+
 	// Do some case checking
 	switch (result)
 	{
