@@ -430,7 +430,7 @@ bool GraphicsHandler::selectAdapter(void)
   }
 
   // Ensure non zero rating
-  if (deviceInfoList.at(selectedIndex).rating == 0)
+  if (deviceInfoList.at(selectedIndex).rating <= 0)
   {
     return false;
   }
