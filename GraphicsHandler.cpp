@@ -24,50 +24,38 @@ GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
 
 void GraphicsHandler::initGraphics(void)
 {
-  /*
-    Ensure all requested validation layers are supported
-  */
+  // Ensure all requested validation layers are supported
   if (enableValidationLayers)
   {
-    std::cout << "[!] Debugging enabled" << std::endl;
-
-    /*
-      Returns false if fail, failList is populated with failed requests
-    */
-    std::cout << "\t[+] Checking for validation layers" << std::endl;
     std::string failList;
+    std::cout << "[!] Debugging enabled" << std::endl;
+    std::cout << "\t[-] Checking for validation layers" << std::endl;
+    // Returns false if fail, failList is populated with failed requests
     bool validationCheck = checkValidationLayerSupport(&failList);
     if (!validationCheck)
     {
-      std::string e =
-          "The following requested validation layers were not found\n";
+      std::string e = "The following requested validation layers were not found\n";
       e += failList;
       G_EXCEPT(e.c_str());
     }
+    std::cout << "\t[+] All layers found" << std::endl;
   }
 
-  /*
-    Ensure system supports requested instance extensions here
-  */
-  std::cout << "[+] Checking instance level extension support" << std::endl;
+  // Ensure system supports requested instance extensions here
   std::string failList;
+  std::cout << "[+] Checking instance level extension support" << std::endl;
   bool extensionCheck = checkInstanceExtensionSupport(&failList);
 
   // check if extension check failed
   if (!extensionCheck)
   {
     // if it failed, fetch the list of failed requests and throw
-    std::string e =
-        "The following requested instance extensions were not supported!\n";
+    std::string e = "The following requested instance extensions were not supported!\n";
     e += failList;
-    e += "\nThis can sometimes mean that Vulkan is not supported by your drivers\n";
+    e += "\nThis can sometimes mean that Vulkan is not supported by your system\n";
     G_EXCEPT(e.c_str());
   }
 
-  /*
-    creates instance, fetches physical device handle,
-    describes graphics queue creation and creates logical device
-  */
   initVulkan();
 
   return;
@@ -82,6 +70,9 @@ void GraphicsHandler::initVulkan(void)
   std::cout << "[+] Creating instance" << std::endl;
   createInstance();
 
+  // Fetches devices and their info
+  queryDevices();
+
   /*
     Selects an adapter we will create a logical device for
     in the process it also retrieves the index of graphics queue family
@@ -90,26 +81,52 @@ void GraphicsHandler::initVulkan(void)
   std::cout << "[+] Selecting adapter" << std::endl;
   if (!selectAdapter())
   {
-    G_EXCEPT("Failed to find a compatible device for rendering!");
+    G_EXCEPT("Failed to find a device with Vulkan support");
   }
 
-  // now that we've selected a physical device
-  // store its handle in m_PhysicalDevice
-  // this is purely for convienience
+  // Store physical device handle in m_PhysicalDevice
   m_PhysicalDevice = deviceInfoList.at(selectedIndex).devHandle;
 
-  /*
-    Creates surface and DESCRIBES the creation of graphics queue and presentation queue
-    If graphics queue and present queue share the same family index, only 1 is specified for creation
+  VkXlibSurfaceCreateInfoKHR createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+  createInfo.pNext = nullptr;
+  createInfo.flags = 0;
+  createInfo.dpy = display;
+  createInfo.window = *window;
 
-    Will also populate m_SurfaceDetails to describe the capabilities the surface supports in a swap chain
-  */
+  // Create window surface
   std::cout << "[+] Creating Vulkan surface" << std::endl;
-  registerSurface();
+  if (vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create surface");
+  }
+
+  // Fetches list of queues that support presentation
+  findPresentSupport();
+
+  /*
+    Creates QueueCreateInfo structs for Graphics
+    queue and if necessary a Present queue
+  */
+  configureCommandQueues();
+
+  /* Fetch swap chain info for creation */
+  querySwapChainSupport();
+
+  
+
+
+  /* RESUME REFACTORING HERE */
+// checkdeviceextensionsupport
+
+
+
+
+
 
   // check for DEVICE extensions support
-  std::cout << "[+] Checking for device level extension support" << std::endl;
   std::string failList;
+  std::cout << "[+] Checking for device level extension support" << std::endl;
   if (!checkDeviceExtensionSupport(&failList))
   {
     std::string e =
@@ -239,19 +256,19 @@ void GraphicsHandler::initVulkan(void)
 
 void GraphicsHandler::createInstance(void)
 {
-  VkResult result;
   VkApplicationInfo appInfo = {};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  appInfo.pNext = nullptr;
   appInfo.pApplicationName = "Bloody Day";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.pEngineName = "No Engine";
+  appInfo.pEngineName = "Moogin";
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.apiVersion = VK_MAKE_VERSION(1, 2, 0);
 
-  // configure validation layer debugging messages
+/* If debugging enabled */
+#ifndef NDEBUG
   VkDebugUtilsMessengerCreateInfoEXT debuggerSettings{};
-  debuggerSettings.sType =
-      VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  debuggerSettings.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   debuggerSettings.pNext = nullptr;
   debuggerSettings.flags = 0;
   debuggerSettings.messageSeverity =
@@ -270,295 +287,297 @@ void GraphicsHandler::createInstance(void)
   createInfo.pNext = &debuggerSettings;
   createInfo.flags = 0;
   createInfo.pApplicationInfo = &appInfo;
-  if (enableValidationLayers)
-  {
-    createInfo.enabledLayerCount =
-        static_cast<uint32_t>(requestedValidationLayers.size());
+  createInfo.enabledLayerCount = static_cast<uint32_t>(requestedValidationLayers.size());
+  createInfo.ppEnabledLayerNames = requestedValidationLayers.data();
+  createInfo.enabledExtensionCount = static_cast<uint32_t>(requestedInstanceExtensions.size());
+  createInfo.ppEnabledExtensionNames = requestedInstanceExtensions.data();
+#endif
+#ifdef NDEBUG
+  /* Debugging disabled */
+  VkInstanceCreateInfo createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+  createInfo.pNext = nullptr;
+  createInfo.flags = 0;
+  createInfo.pApplicationInfo = &appInfo;
+  createInfo.enabledLayerCount = static_cast<uint32_t>(requestedValidationLayers.size());
+  createInfo.ppEnabledLayerNames = requestedValidationLayers.data();
+  createInfo.enabledExtensionCount = static_cast<uint32_t>(requestedInstanceExtensions.size());
+  createInfo.ppEnabledExtensionNames = requestedInstanceExtensions.data();
+#endif
 
-    createInfo.ppEnabledLayerNames = requestedValidationLayers.data();
-
-    createInfo.enabledExtensionCount =
-        static_cast<uint32_t>(requestedInstanceExtensions.size());
-
-    createInfo.ppEnabledExtensionNames = requestedInstanceExtensions.data();
-  }
-  else
-  {
-    createInfo.enabledLayerCount = 0;
-    createInfo.ppEnabledLayerNames = nullptr;
-    createInfo.enabledExtensionCount = 0;
-    createInfo.ppEnabledExtensionNames = nullptr;
-  }
-
-  // Create Vulkan instance and store in m_Instance -- private member
-  result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
-  if (result != VK_SUCCESS)
+  // Create instance
+  if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS)
   {
     G_EXCEPT("Failed to create Vulkan instance!");
   }
 
-  // we need to load debug utilities manually
-  loadDebugUtils();
+/* Debugging enabled */
+#ifndef NDEBUG
 
-  result = vkCreateDebugUtilsMessengerEXT(m_Instance,
-                                          &debuggerSettings,
-                                          nullptr,
-                                          &m_Debug);
-  if (result != VK_SUCCESS)
+  // Load debugging utilities and create messenger
+  loadDebugUtils();
+  if (vkCreateDebugUtilsMessengerEXT(m_Instance, &debuggerSettings, nullptr, &m_Debug) != VK_SUCCESS)
   {
     G_EXCEPT("Failed to create debug messenger");
   }
+#endif
 
-  // Load in our KHR functions
-  // Provided by instance level extensions
-  // loadInstancePFN();
   return;
 }
 
-// assigns `points` to all found devices with vulkan support
-// sets `selectedIndex` to be the highest rated device
-// `selectedIndex` is used to identify which
-// device in vector deviceInfoList was selected
-bool GraphicsHandler::selectAdapter(void)
+// Fetches all physical device handles and retrieves
+// properties and features for each of them
+void GraphicsHandler::queryDevices(void)
 {
-  VkResult result;
-
-  // Enumerate devices and find Vulkan support
-  result = vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
-  if (result != VK_SUCCESS)
+  uint32_t numDevices = 0;
+  if (vkEnumeratePhysicalDevices(m_Instance, &numDevices, nullptr) != VK_SUCCESS)
   {
-    G_EXCEPT("Failure enumerating devices!");
+    G_EXCEPT("Failure enumerating devices");
   }
 
-  if (deviceCount == 0)
+  if (numDevices == 0)
   {
-    G_EXCEPT("No devices found with Vulkan support!");
+    G_EXCEPT("No adapters with Vulkan support found");
   }
 
-  // Allocate space for device list
-  deviceInfoList.resize(deviceCount);
+  deviceInfoList.resize(numDevices);
+  std::vector<VkPhysicalDevice> tempContainer(numDevices);
 
-  // Now we can fetch all the devices we found
-  std::vector<VkPhysicalDevice> tempContainer(deviceCount);
-  result = vkEnumeratePhysicalDevices(m_Instance,
-                                      &deviceCount,
-                                      tempContainer.data());
-  if (result != VK_SUCCESS)
+  // Fetch devices
+  if (vkEnumeratePhysicalDevices(m_Instance, &numDevices, tempContainer.data()) != VK_SUCCESS)
   {
-    G_EXCEPT("Failure fetching physical devices!");
+    G_EXCEPT("Failure fetching physical device handles");
   }
 
-  // place the devices found in our custom structure
+  // Move device handles to custom structure
   for (size_t i = 0; i < deviceInfoList.size(); i++)
   {
     deviceInfoList.at(i).devHandle = tempContainer.at(i);
   }
 
-  // iterate each device found
-  for (size_t i = 0; i < deviceInfoList.size(); i++)
+  // Populate our container with devices and their properties/features
+  for (auto &deviceContainer : deviceInfoList)
   {
-    /*
-      CLEAR THE STRUCTURES TO AVOID BAD DATA FROM UNINITIALIZATION
-    */
-    memset(&deviceInfoList.at(i).devProperties,
-           0,
-           sizeof(VkPhysicalDeviceProperties2));
+    memset(&deviceContainer.devProperties, 0, sizeof(VkPhysicalDeviceProperties2));
+    memset(&deviceContainer.devFeatures, 0, sizeof(VkPhysicalDeviceFeatures2));
+    memset(&deviceContainer.extendedFeatures, 0, sizeof(VkPhysicalDeviceExtendedDynamicStateFeaturesEXT));
+    // Configure structures so that Vulkan will recognize and populate them
+    deviceContainer.devProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    deviceContainer.devFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceContainer.extendedFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+    // Append extendedFeatures container to devFeatures structure
+    deviceContainer.devFeatures.pNext = &deviceContainer.extendedFeatures;
 
-    memset(&deviceInfoList.at(i).devFeatures,
-           0,
-           sizeof(VkPhysicalDeviceFeatures2));
-
-    deviceInfoList.at(i).devProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    deviceInfoList.at(i).devFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    // Ensure pNext is pointing to dynamic state container
-    deviceInfoList.at(i).extendedFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
-    deviceInfoList.at(i).devFeatures.pNext = &deviceInfoList.at(i).extendedFeatures;
-
-    // get infos
-    /*
-      must use `deviceInfoList` vector and `selectedIndex` as m_PhysicalDevice has not been
-      assigned the handle of selected device yet
-
-      m_PhysicalDevice can be used after rateDevice() has been successfully called
-    */
-    vkGetPhysicalDeviceProperties2(
-        deviceInfoList.at(i).devHandle,
-        &deviceInfoList.at(i).devProperties);
-
-    vkGetPhysicalDeviceFeatures2(
-        deviceInfoList.at(i).devHandle,
-        &deviceInfoList.at(i).devFeatures);
-
-    // Check if dedicated gpu
-    if (deviceInfoList.at(i).devProperties.properties.deviceType ==
-        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+    // Fetch properties/features for each device
+    vkGetPhysicalDeviceProperties2(deviceContainer.devHandle, &deviceContainer.devProperties);
+    vkGetPhysicalDeviceFeatures2(deviceContainer.devHandle, &deviceContainer.devFeatures);
+    // Fetch queue families
+    vkGetPhysicalDeviceQueueFamilyProperties(deviceContainer.devHandle, &deviceContainer.queueFamilyCount, nullptr);
+    if (deviceContainer.queueFamilyCount == 0)
     {
-      deviceInfoList.at(i).rating += 1000;
+      deviceContainer.rating = -1;
+      continue;
     }
+    deviceContainer.queueFamiles.resize(deviceContainer.queueFamilyCount, {});
+    vkGetPhysicalDeviceQueueFamilyProperties(deviceContainer.devHandle, &deviceContainer.queueFamilyCount,
+                                             deviceContainer.queueFamiles.data());
+  }
+  return;
+}
 
-    // add max image dimension to rating
-    deviceInfoList.at(i).rating +=
-        deviceInfoList.at(i).devProperties.properties.limits.maxImageDimension2D;
-
-    // get supported queue families
-    vkGetPhysicalDeviceQueueFamilyProperties(
-        deviceInfoList.at(selectedIndex).devHandle,
-        &deviceInfoList.at(i).queueFamilyCount,
-        nullptr);
-    // ensure this device supports at least 1 queue
-    if (deviceInfoList.at(i).queueFamilyCount == 0)
+bool GraphicsHandler::selectAdapter(void)
+{
+  for (auto &deviceContainer : deviceInfoList)
+  {
+    // If rating is -1, skip
+    if (deviceContainer.rating == -1)
     {
-      deviceInfoList.at(i).rating = 0;
       continue;
     }
 
-    // resize queue storage
-    deviceInfoList.at(i).queueFamiles.resize(deviceInfoList.at(i).queueFamilyCount);
-    // fetch all the queues and place into our custom struct
-    vkGetPhysicalDeviceQueueFamilyProperties(deviceInfoList.at(selectedIndex).devHandle,
-                                             &deviceInfoList.at(i).queueFamilyCount,
-                                             deviceInfoList.at(i).queueFamiles.data());
+    if (deviceContainer.devProperties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+    {
+      deviceContainer.rating += 1000;
+    }
+    deviceContainer.rating += deviceContainer.devProperties.properties.limits.maxImageDimension2D;
 
-    // ensure device supports VK_QUEUE_GRAPHICS_BIT
+    // Iterate device's queue families and ensure graphics is supported
     bool hasGraphics = false;
-
-    for (size_t j = 0; j < deviceInfoList.at(i).queueFamiles.size(); j++)
+    for (auto &queue : deviceContainer.queueFamiles)
     {
-      if (deviceInfoList.at(i).queueFamiles.at(j).queueFlags &
-          VK_QUEUE_GRAPHICS_BIT)
+      if (queue.queueFlags & VK_QUEUE_GRAPHICS_BIT)
       {
-        // device supports graphics
         hasGraphics = true;
-        deviceInfoList.at(i).graphicsFamilyIndex = j;
+        deviceContainer.graphicsFamilyIndex = (&queue - &deviceContainer.queueFamiles[0]);
       }
-    }
-    // ensure it supports Graphics queue
-    if (!hasGraphics)
+    } // end queue loop
+
+    if (!hasGraphics || !deviceContainer.devFeatures.features.geometryShader)
     {
-      deviceInfoList.at(i).rating = 0;
+      deviceContainer.rating = 0;
       continue;
     }
+  } // end container loop
 
-    // Ensure it has shaders
-    if (!deviceInfoList.at(i).devFeatures.features.geometryShader)
-    {
-      deviceInfoList.at(i).rating = 0;
-      continue;
-    }
-  }
-
-  // -- SELECTION --
-  // iterate deviceAndScore, select highest one
-  // start with first device and move on
+  /* -- SELECTION -- */
   selectedIndex = 0;
-  for (size_t i = 0; i < deviceInfoList.size(); i++)
+  for (auto &device : deviceInfoList)
   {
-    // if current index is higher than selected index, select new index
-    if (deviceInfoList.at(i).rating > deviceInfoList.at(selectedIndex).rating)
+    if (device.rating > deviceInfoList.at(selectedIndex).rating)
     {
-      selectedIndex = i;
+      selectedIndex = (&device - &deviceInfoList[0]);
     }
   }
 
-  // double check our rating before returning
+  // Ensure non zero rating
   if (deviceInfoList.at(selectedIndex).rating == 0)
   {
-    // failed to find worthy device
     return false;
   }
+
+  selectedDevice = &deviceInfoList.at(selectedIndex);
+
   // set our uniform buffer max size
-  MAX_UNIFORM_BUFFER_SIZE =
-      deviceInfoList.at(selectedIndex).devProperties.properties.limits.maxUniformBufferRange;
+  MAX_UNIFORM_BUFFER_SIZE = selectedDevice->devProperties.properties.limits.maxUniformBufferRange;
   return true;
 }
 
-// Creates surface from window system(winapi on windows)
-void GraphicsHandler::registerSurface(void)
+void GraphicsHandler::findPresentSupport(void)
 {
-  VkResult result;
-
-  // describe surface creation parameters
-  VkXlibSurfaceCreateInfoKHR createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-  createInfo.pNext = nullptr;
-  createInfo.flags = 0;
-  createInfo.dpy = display;
-  createInfo.window = *window;
-
-  // Create window surface
-  result = vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface);
-  if (result != VK_SUCCESS)
+  for (auto &queue : selectedDevice->queueFamiles)
   {
-    G_EXCEPT("Failed to create window surface!");
+    VkBool32 canPresent = false;
+    uint32_t currentIndex = (&queue - &deviceInfoList.at(selectedIndex).queueFamiles[0]);
+    VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice,
+                                                           currentIndex,
+                                                           m_Surface,
+                                                           &canPresent);
+    if (result != VK_SUCCESS)
+    {
+      G_EXCEPT("There was an error determining if queue families support presentation");
+    }
+    if (canPresent)
+    {
+      deviceInfoList.at(selectedIndex).presentIndexes.push_back(currentIndex);
+    }
   }
 
-  // describe creation of graphics queue
-  VkDeviceQueueCreateInfo graphicsQueueCreateInfo{};
-  graphicsQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  graphicsQueueCreateInfo.pNext = nullptr;
-  graphicsQueueCreateInfo.flags = 0;
-  graphicsQueueCreateInfo.queueFamilyIndex =
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
-  graphicsQueueCreateInfo.queueCount = 1;
-  graphicsQueueCreateInfo.pQueuePriorities = &queuePrio;
-
-  // push this description to our vector
-  queueCreateInfos.push_back(graphicsQueueCreateInfo);
-
-  // check if the earlier fetched queue family supports presentation
-  VkBool32 hasPresentSupport = false;
-  result = vkGetPhysicalDeviceSurfaceSupportKHR(
-      m_PhysicalDevice,
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
-      m_Surface, &hasPresentSupport);
-  if (result != VK_SUCCESS)
+  if (deviceInfoList.at(selectedIndex).presentIndexes.empty())
   {
-    G_EXCEPT("Failure checking for presentation support!");
+    G_EXCEPT("Selected device does not support presentation");
+  }
+  return;
+}
+
+void GraphicsHandler::configureCommandQueues(void)
+{
+  // Double check we have present and graphics queue
+  if (selectedDevice->presentIndexes.empty())
+  {
+    G_EXCEPT("Presentation not supported on selected device");
   }
 
-  if (hasPresentSupport)
-  {
-    deviceInfoList.at(selectedIndex).presentFamilyIndex =
-        deviceInfoList.at(selectedIndex).graphicsFamilyIndex;
-  }
-  else
-  {
-    // selected device's graphics queue does not have present support
-    // maybe look for another queue
-    G_EXCEPT("Selected device does not support presentation!");
-  }
+  // Graphics queue
+  VkDeviceQueueCreateInfo graphicsQueueInfo{};
+  const float prio[] = {1.0f};
+  graphicsQueueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  graphicsQueueInfo.pNext = nullptr;
+  graphicsQueueInfo.flags = 0;
+  graphicsQueueInfo.queueFamilyIndex = selectedDevice->graphicsFamilyIndex;
+  graphicsQueueInfo.queueCount = 1;
+  graphicsQueueInfo.pQueuePriorities = prio;
 
-  // if graphics queue and present queue
-  // do NOT share an index, create present queue
-  if (deviceInfoList.at(selectedIndex).graphicsFamilyIndex !=
-      deviceInfoList.at(selectedIndex).presentFamilyIndex)
-  {
-    // describe creation of presentation queue
-    VkDeviceQueueCreateInfo presentQueueCreateInfo{};
-    presentQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    presentQueueCreateInfo.pNext = nullptr;
-    presentQueueCreateInfo.flags = 0;
-    presentQueueCreateInfo.queueFamilyIndex =
-        deviceInfoList.at(selectedIndex).presentFamilyIndex;
-    presentQueueCreateInfo.queueCount = 1;
-    presentQueueCreateInfo.pQueuePriorities = &queuePrio;
+  queueCreateInfos.push_back(graphicsQueueInfo);
 
-    // push description into vector
-    queueCreateInfos.push_back(presentQueueCreateInfo);
+  // See if graphics queue supports presentation
+  bool hasPresent = false;
+  for (auto &index : selectedDevice->presentIndexes)
+  {
+    if (selectedDevice->graphicsFamilyIndex == index)
+    {
+      hasPresent = true;
+    }
   }
 
-  /*
-    Ensure selected device supports at least 1 present mode
-    and 1 image format for surfaces
-  */
-  m_SurfaceDetails = querySwapChainSupport();
-
-  if (m_SurfaceDetails.formats.empty() ||
-      m_SurfaceDetails.presentModes.empty())
+  // Describe another queue index as presentation
+  if (!hasPresent)
   {
-    G_EXCEPT("Selected device does not support any presents/formats");
+    VkDeviceQueueCreateInfo presentQueueInfo{};
+    const float prio[] = {1.0f};
+    graphicsQueueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    graphicsQueueInfo.pNext = nullptr;
+    graphicsQueueInfo.flags = 0;
+    graphicsQueueInfo.queueFamilyIndex = selectedDevice->presentIndexes[0];
+    graphicsQueueInfo.queueCount = 1;
+    graphicsQueueInfo.pQueuePriorities = prio;
+
+    queueCreateInfos.push_back(presentQueueInfo);
+  }
+  return;
+}
+
+// Query device for swapchain support
+// Configure
+void GraphicsHandler::querySwapChainSupport(void)
+{
+  // Get surface capabilities
+  if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice,
+                                                m_Surface,
+                                                &m_SurfaceDetails.capabilities) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query surface capabilities");
   }
 
+  // Get surface formats
+  uint32_t formatCount = 0;
+  if (vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice,
+                                           m_Surface, &formatCount, nullptr) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query count of surface formats");
+  }
+  if (formatCount == 0)
+  {
+    G_EXCEPT("No supported formats for surface");
+  }
+  m_SurfaceDetails.formats.resize(formatCount);
+  if (vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice,
+                                           m_Surface,
+                                           &formatCount,
+                                           m_SurfaceDetails.formats.data()) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query surface formats list");
+  }
+
+  // Get present modes
+  uint32_t presentModeCount = 0;
+  if (vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice,
+                                                m_Surface,
+                                                &presentModeCount,
+                                                nullptr) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query present mode count");
+  }
+  if (presentModeCount == 0)
+  {
+    G_EXCEPT("Failed to find any supported present modes");
+  }
+  if (vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice,
+                                                m_Surface,
+                                                &presentModeCount,
+                                                m_SurfaceDetails.presentModes.data()) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query present mode list");
+  }
+
+  // Double check formats/present modes
+  if (m_SurfaceDetails.formats.empty())
+  {
+    G_EXCEPT("Selected device has no supported formats");
+  }
+  if(m_SurfaceDetails.presentModes.empty())
+  {
+    G_EXCEPT("Selected device has no supported present modes");
+  }
   return;
 }
 
@@ -1637,82 +1656,6 @@ bool GraphicsHandler::loadDebugUtils(void)
   return true;
 }
 
-SwapChainSupportDetails GraphicsHandler::querySwapChainSupport(void)
-{
-  SwapChainSupportDetails details;
-  VkResult result;
-
-  result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &details.capabilities);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting surface swap chain capabilities!");
-  }
-
-  // get supported formats
-  uint32_t formatCount = 0;
-  result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &formatCount,
-      nullptr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Error finding supported formats for surface!");
-  }
-
-  // ensure formats exist
-  if (formatCount == 0)
-  {
-    G_EXCEPT("No supported formats found for surface!");
-  }
-
-  // get list of supported surface formats
-  details.formats.resize(formatCount);
-  result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &formatCount,
-      details.formats.data());
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting supported formats list!");
-  }
-
-  uint32_t presentModeCount = 0;
-  result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &presentModeCount,
-      nullptr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Error getting supported present mode count!");
-  }
-
-  // ensure present modes exist
-  if (presentModeCount == 0)
-  {
-    G_EXCEPT("Failed to find any supported present modes!");
-  }
-
-  // get list of surface present modes
-  details.presentModes.resize(presentModeCount);
-  result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-      m_PhysicalDevice,
-      m_Surface,
-      &presentModeCount,
-      details.presentModes.data());
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Error getting supported surface presentation modes!");
-  }
-
-  return details;
-}
-
 VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char> &code)
 {
   VkResult result;
@@ -1807,9 +1750,9 @@ VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
 
 VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
 {
-  #ifndef VSYNC_MODE
-    return VK_PRESENT_MODE_IMMEDIATE_KHR;
-  #endif
+#ifndef VSYNC_MODE
+  return VK_PRESENT_MODE_IMMEDIATE_KHR;
+#endif
 
   // application will prefer MAILBOX present mode as it is akin to
   // triple buffering with less latency

@@ -55,13 +55,11 @@ struct DEVICEINFO
 
         int rating = 0; // used in selecting a device
 
-        // index to queue family that has graphics command queue support
         uint32_t graphicsFamilyIndex = 0;
-        // index to queue family with presentation support
-        uint32_t presentFamilyIndex = 0;
-        // how many types of command queues this device supports
+
+        std::vector<uint32_t> presentIndexes;
+
         uint32_t queueFamilyCount = 0;
-        // list of all queue families this device supports
         std::vector<VkQueueFamilyProperties> queueFamiles;
 
         VkPhysicalDeviceProperties2 devProperties{};

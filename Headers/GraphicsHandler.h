@@ -43,8 +43,6 @@ private:
         bool SHOULD_RENDER = true;
 
         int selectedIndex = 0;
-        uint32_t deviceCount = 0;
-        const float queuePrio = 1.0f;
         int MAX_UNIFORM_BUFFER_SIZE = 0;
 
         std::unique_ptr<Camera> camera;
@@ -88,6 +86,8 @@ private:
         std::vector<VkDeviceMemory> m_UniformVPMemories;
         std::vector<void *> m_UniformVPPtrs;
 
+        /* Configured after a device is selected */
+        DEVICEINFO *selectedDevice = nullptr;
         std::vector<DEVICEINFO> deviceInfoList;
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
@@ -107,10 +107,41 @@ private:
         std::vector<Vertex> grid;
 
 private:
+        // Calls all necessary functions to initialize
         void initVulkan(void);
+
+        /*
+         Creates Vulkan instance and loads debug utils if
+         applicable
+        */
         void createInstance(void);
+
+        // Fetches all physical device handles and retrieves
+        // properties and features for each of them
+        void queryDevices(void);
+
+        // Looks for best device to default to for rendering
+        // Prioritizes discrete gpu and high local memory
         bool selectAdapter(void);
-        void registerSurface(void);
+
+        // Queries device queue families and indexes them
+        // in selectedDevice->presentIndexes
+        void findPresentSupport(void);
+
+        // Generates QueueCreateInfos for graphics queue
+        // and separate present queue if necessary
+        // adds create infos to queueCreateInfos
+        void configureCommandQueues(void);
+
+        // Queries device for swapchain support
+        // stores in m_SurfaceDetails
+        void configureSwapChain(void);
+
+        // Queries selected device surface supported
+        // formats, capabilities and present modes
+        // Stores in m_SurfaceDetails
+        void querySwapChainSupport(void);
+
         void createLogicalDeviceAndQueues(void);
         void createSwapChain(void);
         void createDescriptorSetLayout(void);
@@ -144,7 +175,6 @@ private:
         VkExtent2D chooseSwapChainExtent(void);
         VkSurfaceFormatKHR chooseSwapChainFormat(void);
         VkPresentModeKHR chooseSwapChainPresentMode(void);
-        SwapChainSupportDetails querySwapChainSupport(void);
         VkShaderModule createShaderModule(const std::vector<char> &code);
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dstOffset, VkDeviceSize size);
@@ -152,9 +182,9 @@ private:
         VkCommandBuffer beginSingleCommands(void);
         void endSingleCommands(VkCommandBuffer commandBuffer);
 
+        bool checkDeviceExtensionSupport(std::string *failList);
         bool checkValidationLayerSupport(std::string *failList);
         bool checkInstanceExtensionSupport(std::string *failList);
-        bool checkDeviceExtensionSupport(std::string *failList);
 
         void cleanupSwapChain(void);
         void recreateSwapChain(void);
