@@ -43,7 +43,6 @@ private:
         bool SHOULD_RENDER = true;
 
         int selectedIndex = 0;
-        int MAX_UNIFORM_BUFFER_SIZE = 0;
 
         std::unique_ptr<Camera> camera;
 
@@ -64,8 +63,6 @@ private:
         VkDescriptorPool m_DescriptorPool = nullptr;
         VkDescriptorSetLayout m_DescriptorLayout = nullptr;
         VkDebugUtilsMessengerEXT m_Debug = nullptr;
-        VkExtent2D selectedSwapExtent{};
-        VkSurfaceFormatKHR selectedSwapFormat{};
         SwapChainSupportDetails m_SurfaceDetails{};
         std::vector<VkImage> m_SwapImages;
         std::vector<VkImageView> m_SwapViews;
@@ -107,12 +104,20 @@ private:
         std::vector<Vertex> grid;
 
 private:
+        void checkDeviceExtensionSupport(void);
+
+        // If debugging enabled ensures debug layers found
+        void checkValidationLayerSupport(void);
+
+        // Ensures all requested extensions supported
+        void checkInstanceExtensionSupport(void);
+        
         // Calls all necessary functions to initialize
         void initVulkan(void);
 
         /*
-         Creates Vulkan instance and loads debug utils if
-         applicable
+         Creates Vulkan instance
+         Loads debug utils if applicable
         */
         void createInstance(void);
 
@@ -121,8 +126,11 @@ private:
         void queryDevices(void);
 
         // Looks for best device to default to for rendering
-        // Prioritizes discrete gpu and high local memory
-        bool selectAdapter(void);
+        // Prioritizes discrete gpu and high image2d limits
+        void selectAdapter(void);
+
+        // Create's surface
+        void createSurface(void);
 
         // Queries device queue families and indexes them
         // in selectedDevice->presentIndexes
@@ -142,9 +150,23 @@ private:
         // Stores in m_SurfaceDetails
         void querySwapChainSupport(void);
 
-        void createLogicalDeviceAndQueues(void);
+        // Create logical device
+        void createLogicalDevice(void);
+
+        // Creates graphics/present queues
+        // Typically graphics queue and present queue are the same index
+        void createCommandQueues(void);
+
+        // Create swapchain
         void createSwapChain(void);
+
+        // Create views for returned swapchain images
+        void createSwapViews(void);
+
+        // Create layout for resource bindings
         void createDescriptorSetLayout(void);
+
+        // Create graphics pipeline
         void createGraphicsPipeline(void);
         void createFrameBuffers(void);
         void createCommandPool(void);
@@ -167,10 +189,6 @@ private:
         void updateUniformModelBuffer(uint32_t imageIndex);
         void updateUniformVPBuffer(uint32_t imageIndex);
 
-        /*
-                -- HELPERS --
-                Called internally
-        */
         static std::vector<char> readFile(std::string filename);
         VkExtent2D chooseSwapChainExtent(void);
         VkSurfaceFormatKHR chooseSwapChainFormat(void);
@@ -181,10 +199,6 @@ private:
         // Quick command buffer record start/end
         VkCommandBuffer beginSingleCommands(void);
         void endSingleCommands(VkCommandBuffer commandBuffer);
-
-        bool checkDeviceExtensionSupport(std::string *failList);
-        bool checkValidationLayerSupport(std::string *failList);
-        bool checkInstanceExtensionSupport(std::string *failList);
 
         void cleanupSwapChain(void);
         void recreateSwapChain(void);

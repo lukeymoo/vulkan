@@ -24,39 +24,119 @@ GraphicsHandler::GraphicsHandler(Display *dsp, Window *wnd, int w, int h)
 
 void GraphicsHandler::initGraphics(void)
 {
-  // Ensure all requested validation layers are supported
-  if (enableValidationLayers)
-  {
-    std::string failList;
-    std::cout << "[!] Debugging enabled" << std::endl;
-    std::cout << "\t[-] Checking for validation layers" << std::endl;
-    // Returns false if fail, failList is populated with failed requests
-    bool validationCheck = checkValidationLayerSupport(&failList);
-    if (!validationCheck)
-    {
-      std::string e = "The following requested validation layers were not found\n";
-      e += failList;
-      G_EXCEPT(e.c_str());
-    }
-    std::cout << "\t[+] All layers found" << std::endl;
-  }
+#ifndef NDEBUG
+  std::cout << "[!] Debugging enabled" << std::endl;
+  std::cout << "\t[-] Checking for validation layers" << std::endl;
+
+  checkValidationLayerSupport();
+
+  std::cout << "\t[+] All layers found" << std::endl;
+#endif
 
   // Ensure system supports requested instance extensions here
-  std::string failList;
   std::cout << "[+] Checking instance level extension support" << std::endl;
-  bool extensionCheck = checkInstanceExtensionSupport(&failList);
-
-  // check if extension check failed
-  if (!extensionCheck)
-  {
-    // if it failed, fetch the list of failed requests and throw
-    std::string e = "The following requested instance extensions were not supported!\n";
-    e += failList;
-    e += "\nThis can sometimes mean that Vulkan is not supported by your system\n";
-    G_EXCEPT(e.c_str());
-  }
+  checkInstanceExtensionSupport();
 
   initVulkan();
+
+  return;
+}
+
+void GraphicsHandler::checkValidationLayerSupport(void)
+{
+  uint32_t layerCount = 0;
+  if (vkEnumerateInstanceLayerProperties(&layerCount, nullptr) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query supported instance layer count");
+  }
+
+  if (layerCount == 0 && !requestedValidationLayers.empty())
+  {
+    G_EXCEPT("No supported validation layers found");
+  }
+
+  std::vector<VkLayerProperties> availableLayers(layerCount);
+  if (vkEnumerateInstanceLayerProperties(&layerCount,
+                                         availableLayers.data()) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query supported instance layer list");
+  }
+
+  std::string prelude = "The following instance layers were not found...\n";
+  std::string failed;
+  for (const auto &requestedLayer : requestedValidationLayers)
+  {
+    bool match = false;
+    for (const auto &availableLayer : availableLayers)
+    {
+      if (strcmp(requestedLayer, availableLayer.layerName) == 0)
+      {
+        match = true;
+        break;
+      }
+    }
+    if (!match)
+    {
+      failed += requestedLayer + '\n';
+    }
+  }
+
+  if (!failed.empty())
+  {
+    G_EXCEPT(prelude + failed);
+  }
+
+  return;
+}
+
+void GraphicsHandler::checkInstanceExtensionSupport(void)
+{
+  uint32_t instanceExtensionCount = 0;
+  if (vkEnumerateInstanceExtensionProperties(nullptr,
+                                             &instanceExtensionCount,
+                                             nullptr) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query instance supported extension count");
+  }
+
+  if (instanceExtensionCount == 0 && !requestedInstanceExtensions.empty())
+  {
+    G_EXCEPT("No instance level extensions supported by device");
+  }
+
+  std::vector<VkExtensionProperties> availableInstanceExtensions(instanceExtensionCount);
+  if (vkEnumerateInstanceExtensionProperties(nullptr,
+                                             &instanceExtensionCount,
+                                             availableInstanceExtensions.data()) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to query instance supported extensions list");
+  }
+
+  std::string prelude = "The following instance extensions were not found...\n";
+  std::string failed;
+  for (const auto &requestedExtension : requestedInstanceExtensions)
+  {
+    bool match = false;
+    for (const auto &availableExtension : availableInstanceExtensions)
+    {
+      // check if match
+      if (strcmp(requestedExtension, availableExtension.extensionName) == 0)
+      {
+        match = true;
+        break;
+      }
+    }
+
+    if (!match)
+    {
+      failed += requestedExtension + '\n';
+    }
+  }
+
+  if (!failed.empty())
+  {
+    G_EXCEPT(prelude + failed);
+  }
 
   return;
 }
@@ -79,27 +159,13 @@ void GraphicsHandler::initVulkan(void)
     and stores as member variable of deviceInfoList[selectedIndex]
   */
   std::cout << "[+] Selecting adapter" << std::endl;
-  if (!selectAdapter())
-  {
-    G_EXCEPT("Failed to find a device with Vulkan support");
-  }
+  selectAdapter();
 
   // Store physical device handle in m_PhysicalDevice
   m_PhysicalDevice = deviceInfoList.at(selectedIndex).devHandle;
 
-  VkXlibSurfaceCreateInfoKHR createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-  createInfo.pNext = nullptr;
-  createInfo.flags = 0;
-  createInfo.dpy = display;
-  createInfo.window = *window;
-
   // Create window surface
-  std::cout << "[+] Creating Vulkan surface" << std::endl;
-  if (vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface) != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to create surface");
-  }
+  createSurface();
 
   // Fetches list of queues that support presentation
   findPresentSupport();
@@ -113,53 +179,33 @@ void GraphicsHandler::initVulkan(void)
   /* Fetch swap chain info for creation */
   querySwapChainSupport();
 
-  
+  // Check device level extension support
+  std::cout << "[+] Checking device level extension support" << std::endl;
+  checkDeviceExtensionSupport();
 
+  // Create logical device
+  std::cout << "[+] Creating logical device" << std::endl;
+  createLogicalDevice();
 
-  /* RESUME REFACTORING HERE */
-// checkdeviceextensionsupport
-
-
-
-
-
-
-  // check for DEVICE extensions support
-  std::string failList;
-  std::cout << "[+] Checking for device level extension support" << std::endl;
-  if (!checkDeviceExtensionSupport(&failList))
-  {
-    std::string e =
-        "The following requested device extensions were not supported!\n";
-    e += failList;
-    G_EXCEPT(e.c_str());
-  }
-
-  std::cout << "[+] Creating logical device and queues" << std::endl;
-  createLogicalDeviceAndQueues();
+  // Create command queues (present + graphics)
+  std::cout << "[+] Create command queues" << std::endl;
+  createCommandQueues();
 
   // Load our device level PFN functions
   std::cout << "[+] Loading dynamic state functions" << std::endl;
   loadDevicePFN();
 
-  /*
-    Creates swap chain, retreives images and then creates views for all of them
-  */
   std::cout << "[+] Creating swapchain" << std::endl;
   createSwapChain();
 
-  /*
-    Create descriptor layout for Vulkan to understand how to
-    access uniform buffer resources (e.g model view projection matrices)
-  */
-  std::cout << "[+] Creating descriptor layouts" << std::endl;
+  std::cout << "[+] Creating swap views" << std::endl;
+  createSwapViews();
+
+  // Create descriptor set layout
+  std::cout << "[+] Creating descriptor set layout" << std::endl;
   createDescriptorSetLayout();
 
-  /*
-    We've created our swap chain and retrieved the handle to all allocated images
-    We've also created views into all retrieved images and are prepared for the
-    final steps in created our pipeline
-  */
+  // Create graphics pipeline
   std::cout << "[+] Initializing pipeline" << std::endl;
   createGraphicsPipeline();
 
@@ -385,7 +431,7 @@ void GraphicsHandler::queryDevices(void)
   return;
 }
 
-bool GraphicsHandler::selectAdapter(void)
+void GraphicsHandler::selectAdapter(void)
 {
   for (auto &deviceContainer : deviceInfoList)
   {
@@ -429,17 +475,32 @@ bool GraphicsHandler::selectAdapter(void)
     }
   }
 
-  // Ensure non zero rating
   if (deviceInfoList.at(selectedIndex).rating <= 0)
   {
-    return false;
+    G_EXCEPT("Failed to find a suitable adapter");
   }
 
   selectedDevice = &deviceInfoList.at(selectedIndex);
 
-  // set our uniform buffer max size
-  MAX_UNIFORM_BUFFER_SIZE = selectedDevice->devProperties.properties.limits.maxUniformBufferRange;
-  return true;
+  return;
+}
+
+void GraphicsHandler::createSurface(void)
+{
+  VkXlibSurfaceCreateInfoKHR createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+  createInfo.pNext = nullptr;
+  createInfo.flags = 0;
+  createInfo.dpy = display;
+  createInfo.window = *window;
+
+  // Create window surface
+  std::cout << "[+] Creating Vulkan surface" << std::endl;
+  if (vkCreateXlibSurfaceKHR(m_Instance, &createInfo, nullptr, &m_Surface) != VK_SUCCESS)
+  {
+    G_EXCEPT("Failed to create surface");
+  }
+  return;
 }
 
 void GraphicsHandler::findPresentSupport(void)
@@ -448,11 +509,10 @@ void GraphicsHandler::findPresentSupport(void)
   {
     VkBool32 canPresent = false;
     uint32_t currentIndex = (&queue - &deviceInfoList.at(selectedIndex).queueFamiles[0]);
-    VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice,
-                                                           currentIndex,
-                                                           m_Surface,
-                                                           &canPresent);
-    if (result != VK_SUCCESS)
+    if (vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice,
+                                             currentIndex,
+                                             m_Surface,
+                                             &canPresent) != VK_SUCCESS)
     {
       G_EXCEPT("There was an error determining if queue families support presentation");
     }
@@ -471,7 +531,7 @@ void GraphicsHandler::findPresentSupport(void)
 
 void GraphicsHandler::configureCommandQueues(void)
 {
-  // Double check we have present and graphics queue
+  // Double check we have present support
   if (selectedDevice->presentIndexes.empty())
   {
     G_EXCEPT("Presentation not supported on selected device");
@@ -489,7 +549,7 @@ void GraphicsHandler::configureCommandQueues(void)
 
   queueCreateInfos.push_back(graphicsQueueInfo);
 
-  // See if graphics queue supports presentation
+  // See if graphics queue also supports presentation
   bool hasPresent = false;
   for (auto &index : selectedDevice->presentIndexes)
   {
@@ -516,8 +576,6 @@ void GraphicsHandler::configureCommandQueues(void)
   return;
 }
 
-// Query device for swapchain support
-// Configure
 void GraphicsHandler::querySwapChainSupport(void)
 {
   // Get surface capabilities
@@ -561,6 +619,7 @@ void GraphicsHandler::querySwapChainSupport(void)
   {
     G_EXCEPT("Failed to find any supported present modes");
   }
+  m_SurfaceDetails.presentModes.resize(presentModeCount);
   if (vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice,
                                                 m_Surface,
                                                 &presentModeCount,
@@ -574,244 +633,269 @@ void GraphicsHandler::querySwapChainSupport(void)
   {
     G_EXCEPT("Selected device has no supported formats");
   }
-  if(m_SurfaceDetails.presentModes.empty())
+  if (m_SurfaceDetails.presentModes.empty())
   {
     G_EXCEPT("Selected device has no supported present modes");
   }
   return;
 }
 
-void GraphicsHandler::createLogicalDeviceAndQueues(void)
+void GraphicsHandler::checkDeviceExtensionSupport(void)
 {
-  VkResult result;
-
-  // logical device creation needs to occur
-  // after preparing creation of all queues
-  // now that we've described all queues we want to create,
-  // past into creation of logical device
-  VkDeviceCreateInfo logicalDeviceCreateInfo{};
-  logicalDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  logicalDeviceCreateInfo.pNext = &deviceInfoList.at(selectedIndex).devFeatures;
-
-  logicalDeviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-  logicalDeviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-
-  // logicalDeviceCreateInfo.pEnabledFeatures = &deviceInfoList.at(selectedIndex).devFeatures.features;
-  logicalDeviceCreateInfo.pEnabledFeatures = nullptr; // if pNext is vkPhysicalDeviceFeatures2 then must be nullptr
-
-  // device level layers deprecated
-  logicalDeviceCreateInfo.enabledLayerCount = 0;
-  logicalDeviceCreateInfo.ppEnabledLayerNames = nullptr;
-
-  logicalDeviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requestedDeviceExtensions.size());
-  logicalDeviceCreateInfo.ppEnabledExtensionNames = requestedDeviceExtensions.data();
-
-  // Create logical device
-  result = vkCreateDevice(m_PhysicalDevice,
-                          &logicalDeviceCreateInfo,
-                          nullptr,
-                          &m_Device);
-  if (result != VK_SUCCESS)
+  uint32_t deviceExtensionCount = 0;
+  if (vkEnumerateDeviceExtensionProperties(m_PhysicalDevice,
+                                           nullptr,
+                                           &deviceExtensionCount,
+                                           nullptr) != VK_SUCCESS)
   {
-    G_EXCEPT("Failed to create logical device!");
+    G_EXCEPT("Failed to query device supported extension count");
   }
 
-  // Retrieve the Graphics queue from newly created logical device
-  vkGetDeviceQueue(m_Device,
-                   deviceInfoList.at(selectedIndex).graphicsFamilyIndex,
-                   0,
-                   &m_GraphicsQueue);
-
-  // Check if the presentation/graphics queue share
-  // an index before requesting both
-  // if not request present queue seperately
-  if (deviceInfoList.at(selectedIndex).graphicsFamilyIndex !=
-      deviceInfoList.at(selectedIndex).presentFamilyIndex)
+  if (deviceExtensionCount == 0 && !requestedDeviceExtensions.empty())
   {
-    vkGetDeviceQueue(m_Device,
-                     deviceInfoList.at(selectedIndex).presentFamilyIndex,
-                     0,
-                     &m_PresentQueue);
-  }
-  else
-  {
-    // since the indexes are the same we will point present queue to graphics
-    m_PresentQueue = m_GraphicsQueue;
+    G_EXCEPT("Device reporting no supported extensions");
   }
 
-  // Ensure we retrieved the queue
-  if (!m_GraphicsQueue)
+  std::vector<VkExtensionProperties> availableExtensions(deviceExtensionCount);
+  if (vkEnumerateDeviceExtensionProperties(m_PhysicalDevice,
+                                           nullptr,
+                                           &deviceExtensionCount,
+                                           availableExtensions.data()) != VK_SUCCESS)
   {
-    G_EXCEPT("Failed to retrieve handle to graphics command queue");
+    G_EXCEPT("Failed to query device supported extension list");
+  }
+
+  // Check `requestedDeviceExtensions` against
+  // availableExtensions
+  std::string prelude = "The following device extensions were not found...\n";
+  std::string failed;
+  for (const auto &requestedExtension : requestedDeviceExtensions)
+  {
+    bool match = false;
+    for (const auto &availableExtension : availableExtensions)
+    {
+      if (strcmp(requestedExtension, availableExtension.extensionName) == 0)
+      {
+        match = true;
+        break;
+      }
+    }
+    if (!match)
+    {
+      failed += requestedExtension + '\n';
+    }
+  }
+  if (!failed.empty())
+  {
+    G_EXCEPT(prelude + failed);
   }
   return;
 }
 
-void GraphicsHandler::createSwapChain(void)
+void GraphicsHandler::createLogicalDevice(void)
 {
-  VkResult result;
+  VkDeviceCreateInfo deviceCreateInfo{};
+  deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  deviceCreateInfo.pNext = &selectedDevice->devFeatures;
+  deviceCreateInfo.flags = 0;
+  deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+  deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+  deviceCreateInfo.enabledLayerCount = 0;
+  deviceCreateInfo.ppEnabledLayerNames = nullptr;
+  deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(requestedDeviceExtensions.size());
+  deviceCreateInfo.ppEnabledExtensionNames = requestedDeviceExtensions.data();
+  deviceCreateInfo.pEnabledFeatures = nullptr;
 
-  /*
-    Choose surface format, present mode and extent
-
-    swap extent and format are member variables stored for future use
-    `selectedSwapExtent`
-    `selectedSwapFormat`
-  */
-  VkPresentModeKHR swapPresentMode{};
-  uint32_t imageCount = 0;
-
-  selectedSwapFormat = chooseSwapChainFormat();
-  swapPresentMode = chooseSwapChainPresentMode();
-  selectedSwapExtent = chooseSwapChainExtent();
-  imageCount = m_SurfaceDetails.capabilities.maxImageCount + 1;
-
-  // double check we did not exceed max image count
-  if (m_SurfaceDetails.capabilities.maxImageCount > 0 &&
-      imageCount > m_SurfaceDetails.capabilities.maxImageCount)
+  // Create device
+  if (vkCreateDevice(m_PhysicalDevice,
+                     &deviceCreateInfo,
+                     nullptr,
+                     &m_Device) != VK_SUCCESS)
   {
-    imageCount = m_SurfaceDetails.capabilities.maxImageCount;
+    G_EXCEPT("Failed to create logical device");
+  }
+  return;
+}
+
+void GraphicsHandler::createCommandQueues(void)
+{
+  // Graphics queue
+  vkGetDeviceQueue(m_Device,
+                   selectedDevice->graphicsFamilyIndex,
+                   0,
+                   &m_GraphicsQueue);
+
+  m_PresentQueue = m_GraphicsQueue;
+
+  // Only larger than 1 if separate present was found to be necessary
+  if (queueCreateInfos.size() > 1)
+  {
+    vkGetDeviceQueue(m_Device,
+                     selectedDevice->presentIndexes[0],
+                     0,
+                     &m_PresentQueue);
   }
 
-  // Now we can describe the creation of our swapchain
-  VkSwapchainCreateInfoKHR swapChainCreateInfo{};
-  swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  swapChainCreateInfo.pNext = nullptr;
-  swapChainCreateInfo.flags = 0;
-  swapChainCreateInfo.surface = m_Surface;
-  swapChainCreateInfo.minImageCount = imageCount;
-  swapChainCreateInfo.imageFormat = selectedSwapFormat.format;
-  swapChainCreateInfo.imageColorSpace = selectedSwapFormat.colorSpace;
-  swapChainCreateInfo.imageExtent = selectedSwapExtent;
-  swapChainCreateInfo.imageArrayLayers = 1;
-  swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-  /*
-    If presentQueue index and graphicsQueue index are the same we set our swap sharing mode to
-    exclusive as images are handled within' 1 queue
-
-    if they are seperate queues then we must set to swap sharing to concurrent and define which queue indexes will
-    be sharing images here
-  */
-  if (deviceInfoList.at(selectedIndex).presentFamilyIndex ==
-      deviceInfoList.at(selectedIndex).graphicsFamilyIndex)
+  // Ensure we created queues
+  if (!m_GraphicsQueue || !m_PresentQueue)
   {
-    swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    swapChainCreateInfo.queueFamilyIndexCount = 0;
-    swapChainCreateInfo.pQueueFamilyIndices = nullptr;
+    G_EXCEPT("Failed to create command queues");
+  }
+  return;
+}
+
+// Device level extension functions
+bool GraphicsHandler::loadDevicePFN(void)
+{
+  PFN_vkVoidFunction fp;
+
+  fp = vkGetDeviceProcAddr(m_Device, "vkCmdSetPrimitiveTopologyEXT");
+  if (!fp)
+  {
+    G_EXCEPT("Failed to load device level extension function vkCmdSetPrimitiveTopologyEXT");
+  }
+  vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(fp);
+
+  return true;
+}
+
+void GraphicsHandler::createSwapChain(void)
+{
+  m_SurfaceDetails.selectedPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+  for (const auto &mode : m_SurfaceDetails.presentModes)
+  {
+    if (mode == PRESENT_MODE)
+    {
+      m_SurfaceDetails.selectedPresentMode = mode;
+    }
+  }
+
+  m_SurfaceDetails.selectedFormat = m_SurfaceDetails.formats[0];
+
+  for (const auto &format : m_SurfaceDetails.formats)
+  {
+    if (format.format == VK_FORMAT_B8G8R8_SRGB &&
+        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    {
+      m_SurfaceDetails.selectedFormat = format;
+    }
+  }
+
+  // Same queue family doing present/graphics does not need concurrent
+  VkSharingMode sharingMode;
+  std::vector<uint32_t> queueIndices;
+
+  queueIndices.push_back(selectedDevice->graphicsFamilyIndex);
+
+  if (m_PresentQueue == m_GraphicsQueue)
+  {
+    sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   }
   else
   {
-    uint32_t queueIndices[] = {
-        deviceInfoList.at(selectedIndex).presentFamilyIndex,
-        deviceInfoList.at(selectedIndex).graphicsFamilyIndex};
-    swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    swapChainCreateInfo.queueFamilyIndexCount = 2;
-    swapChainCreateInfo.pQueueFamilyIndices = queueIndices;
+    sharingMode = VK_SHARING_MODE_CONCURRENT;
+    queueIndices.push_back(selectedDevice->presentIndexes[0]);
   }
-  swapChainCreateInfo.preTransform =
-      m_SurfaceDetails.capabilities.currentTransform;
-  swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  swapChainCreateInfo.presentMode = swapPresentMode;
-  swapChainCreateInfo.clipped = VK_TRUE;
-  swapChainCreateInfo.oldSwapchain = nullptr;
 
-  // Create the swap chain
-  result = vkCreateSwapchainKHR(m_Device,
-                                &swapChainCreateInfo,
-                                nullptr,
-                                &m_Swap);
-  if (result != VK_SUCCESS)
+  VkSwapchainCreateInfoKHR swapInfo{};
+  swapInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  swapInfo.pNext = nullptr;
+  swapInfo.flags = 0;
+  swapInfo.surface = m_Surface;
+  swapInfo.minImageCount = m_SurfaceDetails.capabilities.maxImageCount;
+  swapInfo.imageFormat = m_SurfaceDetails.selectedFormat.format;
+  swapInfo.imageColorSpace = m_SurfaceDetails.selectedFormat.colorSpace;
+  swapInfo.imageExtent = m_SurfaceDetails.capabilities.currentExtent;
+  swapInfo.imageArrayLayers = 1;
+  swapInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  swapInfo.imageSharingMode = sharingMode;
+  swapInfo.queueFamilyIndexCount = static_cast<uint32_t>(queueIndices.size());
+  swapInfo.pQueueFamilyIndices = queueIndices.data();
+  swapInfo.preTransform = m_SurfaceDetails.capabilities.currentTransform;
+  swapInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  swapInfo.presentMode = m_SurfaceDetails.selectedPresentMode;
+  swapInfo.clipped = VK_TRUE;
+  swapInfo.oldSwapchain = nullptr;
+
+  if (vkCreateSwapchainKHR(m_Device,
+                           &swapInfo,
+                           nullptr,
+                           &m_Swap) != VK_SUCCESS)
   {
-    G_EXCEPT("Failed to create swap chain!");
+    G_EXCEPT("Failed to create swapchain");
   }
 
-  // retrieve swap chain images that were created
-  // could be higher than our specified amount in `minImageCount`
+  return;
+}
 
-  uint32_t swapImageCount = 0;
-
-  // get count of images
-  result = vkGetSwapchainImagesKHR(m_Device, m_Swap, &swapImageCount, nullptr);
-  if (result != VK_SUCCESS)
+void GraphicsHandler::createSwapViews(void)
+{
+  /* Retrieve swapchain images */
+  uint32_t imageCount = 0;
+  if (vkGetSwapchainImagesKHR(m_Device,
+                              m_Swap,
+                              &imageCount, nullptr) != VK_SUCCESS)
   {
-    G_EXCEPT("Error getting count of swap chain images");
+    G_EXCEPT("Failed to query swapchain image count");
   }
-
-  // ensure non zero
-  if (swapImageCount == 0)
+  if (imageCount == 0)
   {
-    G_EXCEPT("Swapchain did not create any images!");
+    G_EXCEPT("Swapchain creation did not produce any images");
   }
 
-  // get handles of images for purposes of creating views for them
-  m_SwapImages.resize(swapImageCount);
-  result = vkGetSwapchainImagesKHR(m_Device,
-                                   m_Swap,
-                                   &swapImageCount,
-                                   m_SwapImages.data());
-  if (result != VK_SUCCESS)
+  m_SwapImages.resize(imageCount);
+  if (vkGetSwapchainImagesKHR(m_Device,
+                              m_Swap,
+                              &imageCount,
+                              m_SwapImages.data()) != VK_SUCCESS)
   {
-    G_EXCEPT("Error getting swap chain image handles!");
+    G_EXCEPT("Failed to retrieve swapchain images");
   }
 
-  // resize views container to be the same as swap images container
-  m_SwapViews.resize(swapImageCount);
-
-  for (size_t i = 0; i < m_SwapImages.size(); i++)
+  /* Create views into swapchain images */
+  m_SwapViews.resize(imageCount);
+  for (const auto &image : m_SwapImages)
   {
-    m_SwapViews[i] = createImageView(m_SwapImages[i], selectedSwapFormat.format);
+    m_SwapViews.push_back(
+        createImageView(image, m_SurfaceDetails.selectedFormat.format));
   }
-
   return;
 }
 
 void GraphicsHandler::createDescriptorSetLayout(void)
 {
-  VkResult result;
+  // View/Projection matrix binding
+  VkDescriptorSetLayoutBinding vpBinding{};
+  vpBinding.binding = 0;
+  vpBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  vpBinding.descriptorCount = 1;
+  vpBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  vpBinding.pImmutableSamplers = nullptr;
 
-  // Model matrix uniform buffer
-  VkDescriptorSetLayoutBinding uniformModelBinding{};
-  uniformModelBinding.binding = 0;
-  uniformModelBinding.descriptorCount = 1;
-  uniformModelBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-  uniformModelBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-  uniformModelBinding.pImmutableSamplers = nullptr;
+  std::vector<VkDescriptorSetLayoutBinding> bindings = {vpBinding};
+  VkDescriptorSetLayoutCreateInfo setInfo{};
+  setInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  setInfo.pNext = nullptr;
+  setInfo.flags = 0;
+  setInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+  setInfo.pBindings = bindings.data();
 
-  // View/project matrix uniform buffer
-  VkDescriptorSetLayoutBinding uniformVPBinding{};
-  uniformVPBinding.binding = 1;
-  uniformVPBinding.descriptorCount = 1;
-  uniformVPBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-  uniformVPBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-  uniformVPBinding.pImmutableSamplers = nullptr;
-
-  // Container for bindings pointed to in layout description
-  std::array<VkDescriptorSetLayoutBinding, 2> allBindings = {uniformModelBinding, uniformVPBinding};
-
-  // Describe creation of layout
-  VkDescriptorSetLayoutCreateInfo uboLayoutInfo{};
-  uboLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  uboLayoutInfo.pNext = nullptr;
-  uboLayoutInfo.flags = 0;
-  uboLayoutInfo.bindingCount = static_cast<uint32_t>(allBindings.size());
-  uboLayoutInfo.pBindings = allBindings.data();
-
-  result = vkCreateDescriptorSetLayout(m_Device, &uboLayoutInfo, nullptr, &m_DescriptorLayout);
-  if (result != VK_SUCCESS)
+  if (vkCreateDescriptorSetLayout(m_Device,
+                                  &setInfo,
+                                  nullptr,
+                                  &m_DescriptorLayout) != VK_SUCCESS)
   {
-    G_EXCEPT("Failed to create uniform buffer descriptor layout");
+    G_EXCEPT("Failed to create descriptor layout");
   }
   return;
 }
 
 void GraphicsHandler::createGraphicsPipeline(void)
 {
-  VkResult result;
-
   auto vertexShader = readFile("shaders/vert.spv");
   auto fragShader = readFile("shaders/frag.spv");
-
+  
   // ensure buffers not empty
   if (vertexShader.empty())
   {
@@ -1426,199 +1510,6 @@ void GraphicsHandler::createSyncObjects(void)
   return;
 }
 
-// Searches for specified layers(Global variable validationLayers)
-// and returns whether they were all available or not
-bool GraphicsHandler::checkValidationLayerSupport(std::string *failList)
-{
-  uint32_t layerCount = 0;
-  failList->clear();
-  VkResult result;
-  result = vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting instance layer count!");
-  }
-
-  // Ensure we found layers
-  if (!layerCount)
-  {
-    *failList = "Layer check could not find any available layers on system!";
-    return false;
-  }
-
-  std::vector<VkLayerProperties> availableLayers(layerCount);
-  result = vkEnumerateInstanceLayerProperties(&layerCount,
-                                              availableLayers.data());
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting instance layer list!");
-  }
-
-  // iterates through list of requested layers
-  for (const char *layerName : requestedValidationLayers)
-  {
-    bool layerFound = false;
-
-    // iterates through list of fetched supported layers
-    for (const auto &fetchedLayer : availableLayers)
-    {
-      // check if we have a match between fetched layer and requested one
-      if (strcmp(layerName, fetchedLayer.layerName) == 0)
-      {
-        layerFound = true;
-        break;
-      }
-    }
-
-    // if we made it through fetched list without finding layer
-    // add to failure list
-    if (!layerFound)
-    {
-      *failList += layerName;
-      *failList += "\n";
-    }
-  }
-
-  // if failList is not empty return errors
-  // errors added to fail list as they occur so just return here
-  if (!failList->empty())
-  {
-    return false;
-  }
-  else
-  {
-    return true;
-  }
-}
-
-bool GraphicsHandler::checkInstanceExtensionSupport(std::string *failList)
-{
-  uint32_t instanceExtensionCount = 0;
-  VkResult result;
-  failList->clear(); // ensure failList is clear
-
-  // get the number of supported instance extensions
-  result = vkEnumerateInstanceExtensionProperties(nullptr,
-                                                  &instanceExtensionCount,
-                                                  nullptr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting instance extension count!");
-  }
-
-  // ensure we found any extensions
-  if (!instanceExtensionCount)
-  {
-    *failList =
-        "Extension check could not find any available extensions on system";
-    return false;
-  }
-
-  // fetch all the supported instances
-  std::vector<VkExtensionProperties>
-      availableInstanceExtensions(instanceExtensionCount);
-  result =
-      vkEnumerateInstanceExtensionProperties(
-          nullptr,
-          &instanceExtensionCount,
-          availableInstanceExtensions.data());
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting instance extension list!");
-  }
-
-  // iterate requested INSTANCE extensions
-  for (const auto &requestedExtensions : requestedInstanceExtensions)
-  {
-    bool extensionMatch = false;
-
-    // iterate the list of all supported INSTANCE extensions
-    for (const auto &fetchedExtensions : availableInstanceExtensions)
-    {
-      // check if match
-      if (strcmp(requestedExtensions, fetchedExtensions.extensionName) == 0)
-      {
-        extensionMatch = true;
-        break;
-      }
-    }
-
-    // if failed to find match, add to failList
-    if (!extensionMatch)
-    {
-      *failList += requestedExtensions;
-      *failList += "\n";
-    }
-  }
-
-  // if failList is not empty return failure
-  if (!failList->empty())
-  {
-    return false;
-  }
-
-  return true;
-}
-
-// check for DEVICE level extensions
-bool GraphicsHandler::checkDeviceExtensionSupport(std::string *failList)
-{
-  uint32_t deviceExtensionCount = 0;
-  VkResult result;
-  failList->clear(); // ensure failList is clear
-
-  // get total number of supported DEVICE extensions
-  result = vkEnumerateDeviceExtensionProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      nullptr,
-      &deviceExtensionCount,
-      nullptr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting count of device extensions!");
-  }
-
-  std::vector<VkExtensionProperties>
-      availableDeviceExtensions(deviceExtensionCount);
-
-  // fetch list of all supported DEVICE extensions
-  result = vkEnumerateDeviceExtensionProperties(
-      deviceInfoList.at(selectedIndex).devHandle,
-      nullptr,
-      &deviceExtensionCount,
-      availableDeviceExtensions.data());
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("There was an error getting device extension list!");
-  }
-
-  // iterate list of requested DEVICE extensions
-  for (const auto &requestedExtension : requestedDeviceExtensions)
-  {
-    bool extensionMatch = false;
-    // iterate list of supported DEVICE extensions
-    for (const auto &fetchedDeviceExtension : availableDeviceExtensions)
-    {
-      if (strcmp(requestedExtension,
-                 fetchedDeviceExtension.extensionName) == 0)
-      {
-        extensionMatch = true;
-        break;
-      }
-    }
-
-    // if failed to find requested DEVICE extension
-    // add to failList
-    if (!extensionMatch)
-    {
-      *failList += requestedExtension;
-      *failList += "\n";
-    }
-  }
-
-  return true;
-}
-
 bool GraphicsHandler::loadDebugUtils(void)
 {
   PFN_vkVoidFunction temp_fp;
@@ -1748,27 +1639,21 @@ VkSurfaceFormatKHR GraphicsHandler::chooseSwapChainFormat(void)
   return m_SurfaceDetails.formats[0];
 }
 
+// Returns
 VkPresentModeKHR GraphicsHandler::chooseSwapChainPresentMode(void)
 {
-#ifndef VSYNC_MODE
-  return VK_PRESENT_MODE_IMMEDIATE_KHR;
-#endif
-
-  // application will prefer MAILBOX present mode as it is akin to
-  // triple buffering with less latency
   for (const auto &presentMode : m_SurfaceDetails.presentModes)
   {
-    if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    if (presentMode == PRESENT_MODE)
     {
-      return presentMode;
-    }
-    else if (presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR)
-    {
-      return presentMode;
+      return PRESENT_MODE;
     }
   }
 
-  // failsafe as it is guaranteed to be available
+  // FIFO guaranteed to be available
+  std::cout << "[+] Present mode -> " << presentModeToString(PRESENT_MODE)
+            << " <- was not available, defaulting to "
+            << presentModeToString(VK_PRESENT_MODE_FIFO_KHR) << std::endl;
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -2160,8 +2045,6 @@ void GraphicsHandler::endSingleCommands(VkCommandBuffer commandBuffer)
 
 VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
 {
-  VkResult result;
-
   VkImageView imageView;
 
   VkImageViewCreateInfo viewInfo{};
@@ -2182,10 +2065,9 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
   viewInfo.subresourceRange.baseArrayLayer = 0;
   viewInfo.subresourceRange.layerCount = 1;
 
-  result = vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView);
-  if (result != VK_SUCCESS)
+  if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
   {
-    G_EXCEPT("Failed to create view into loaded texture");
+    G_EXCEPT("Failed to create image view");
   }
 
   return imageView;
@@ -2469,22 +2351,6 @@ void GraphicsHandler::processGridData(void)
   vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
   vkFreeMemory(m_Device, vertexStagingMemory, nullptr);
   return;
-}
-
-/* Must be called after create logical device! */
-// Device level extension functions
-bool GraphicsHandler::loadDevicePFN(void)
-{
-  PFN_vkVoidFunction fp;
-
-  fp = vkGetDeviceProcAddr(m_Device, "vkCmdSetPrimitiveTopologyEXT");
-  if (!fp)
-  {
-    G_EXCEPT("Failed to load device level extension function vkCmdSetPrimitiveTopologyEXT");
-  }
-  vkCmdSetPrimitiveTopologyEXT = reinterpret_cast<PFN_vkCmdSetPrimitiveTopologyEXT>(fp);
-
-  return true;
 }
 
 void GraphicsHandler::recordCommandBuffer(uint32_t imageIndex)
