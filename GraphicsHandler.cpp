@@ -165,9 +165,11 @@ void GraphicsHandler::initVulkan(void)
   m_PhysicalDevice = deviceInfoList.at(selectedIndex).devHandle;
 
   // Create window surface
+  std::cout << "[+] Creating surface" << std::endl;
   createSurface();
 
   // Fetches list of queues that support presentation
+  std::cout << "[+] Searching for presentation support" << std::endl;
   findPresentSupport();
 
   /*
@@ -188,7 +190,7 @@ void GraphicsHandler::initVulkan(void)
   createLogicalDevice();
 
   // Create command queues (present + graphics)
-  std::cout << "[+] Create command queues" << std::endl;
+  std::cout << "[+] Creating command queues" << std::endl;
   createCommandQueues();
 
   // Load our device level PFN functions
@@ -202,11 +204,11 @@ void GraphicsHandler::initVulkan(void)
   createSwapViews();
 
   // Create descriptor set layout
-  std::cout << "[+] Creating descriptor set layout" << std::endl;
+  std::cout << "[+] Creating descriptor layout" << std::endl;
   createDescriptorSetLayout();
 
   // Create graphics pipeline
-  std::cout << "[+] Initializing pipeline" << std::endl;
+  std::cout << "[+] Creating pipeline" << std::endl;
   createGraphicsPipeline();
 
   /*
@@ -893,29 +895,27 @@ void GraphicsHandler::createDescriptorSetLayout(void)
 
 void GraphicsHandler::createGraphicsPipeline(void)
 {
-  auto vertexShader = readFile("shaders/vert.spv");
-  auto fragShader = readFile("shaders/frag.spv");
-  
-  // ensure buffers not empty
-  if (vertexShader.empty())
-  {
-    G_EXCEPT("Failed to load vertex shader!");
-  }
-  if (vertexShader.empty())
-  {
-    G_EXCEPT("Failed to load fragment shader!");
-  }
+  auto vertexBlob = readFile("shaders/vert.spv");
+  auto fragmentBlob = readFile("shaders/frag.spv");
 
-  /*
-    Wrap shader buffers as modules
+  VkShaderModule vertexModule = createShaderModule(vertexBlob);
+  VkShaderModule fragmentModule = createShaderModule(fragmentBlob);
 
-    Modules can and should be destroyed after creation of graphics pipeline
-  */
-  VkShaderModule vertexModule = createShaderModule(vertexShader);
-  VkShaderModule fragModule = createShaderModule(fragShader);
+  VkPipelineShaderStageCreateInfo vertexStageInfo{};
+  vertexStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  vertexStageInfo.pNext = nullptr;
+  vertexStageInfo.flags = 0;
+  vertexStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vertexStageInfo.module = vertexModule;
+  vertexStageInfo.pName = "main";
+  vertexStageInfo.pSpecializationInfo = nullptr;
 
-  /* Assign shader modules to stages of pipeline */
+  VkPipelineShaderStageCreateInfo
+  return;
+}
 
+void GraphicsHandler::graphicspipeline(void)
+{
   // describe vertex shader stage
   VkPipelineShaderStageCreateInfo vertexShaderStageInfo{};
   vertexShaderStageInfo.sType =
@@ -1549,7 +1549,6 @@ bool GraphicsHandler::loadDebugUtils(void)
 
 VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char> &code)
 {
-  VkResult result;
   VkShaderModule module;
 
   VkShaderModuleCreateInfo moduleInfo{};
@@ -1559,8 +1558,7 @@ VkShaderModule GraphicsHandler::createShaderModule(const std::vector<char> &code
   moduleInfo.codeSize = code.size();
   moduleInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
-  result = vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &module);
-  if (result != VK_SUCCESS)
+  if (vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &module) != VK_SUCCESS)
   {
     G_EXCEPT("Failed to create shader module!");
   }
@@ -1707,30 +1705,48 @@ std::vector<char> GraphicsHandler::readFile(std::string filename)
   std::vector<char> buffer;
 
   // check if file exists
-  if (!std::filesystem::exists(filename))
+  try
+  {
+    std::filesystem::exists(filename);
+    file.open(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open())
+    {
+      std::ostringstream oss;
+      oss << "Failed to open file " << filename;
+      G_EXCEPT(oss.str());
+    }
+
+    // prepare buffer to hold shader bytecode
+    fileSize = (size_t)file.tellg();
+    buffer.resize(fileSize);
+
+    // go back to beginning of file and read in
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+  }
+  catch (std::filesystem::filesystem_error &e)
   {
     std::ostringstream oss;
-    oss << "Specified file does not exist -> " << filename << std::endl;
+    oss << "Filesystem Exception : " << e.what() << std::endl;
     G_EXCEPT(oss.str());
   }
-
-  file.open(filename, std::ios::ate | std::ios::binary);
-
-  if (!file.is_open())
+  catch (std::exception &e)
   {
     std::ostringstream oss;
-    oss << "Failed to open file " << filename;
+    oss << "Standard Exception : " << e.what();
     G_EXCEPT(oss.str());
   }
+  catch (...)
+  {
+    G_EXCEPT("Unhandled exception while loading a file");
+  }
 
-  // prepare buffer to hold shader bytecode
-  fileSize = (size_t)file.tellg();
-  buffer.resize(fileSize);
-
-  // go back to beginning of file and read in
-  file.seekg(0);
-  file.read(buffer.data(), fileSize);
-  file.close();
+  if (buffer.empty())
+  {
+    G_EXCEPT("File reading operation returned empty buffer");
+  }
 
   return buffer;
 }
