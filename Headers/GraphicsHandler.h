@@ -223,13 +223,17 @@ private:
         void createDescriptorPool(void);
 
         void createDescriptorSets(void);
-
         void bindDescriptorSets(void);
+        
+
+
         
         void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                          VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
         VkImageView createImageView(VkImage image, VkFormat);
-        void loadEntities(void);
+
+        void loadentities(void);
+        
         void recordCommandBuffer(uint32_t imageIndex);
 
         void updateUniformModelBuffer(uint32_t imageIndex);

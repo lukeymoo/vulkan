@@ -228,6 +228,13 @@ void GraphicsHandler::initVulkan(void)
   createCommandPool();
 
   /*
+    These are buffers that a specified queue family's commands are recorded in
+    This allocates memory from a parent command pool
+  */
+  std::cout << "[+] Allocating for command buffer" << std::endl;
+  createCommandBuffers();
+
+  /*
     Memory allocator handles vertex, index and uniform buffers
   */
   MemoryInitParameters params;
@@ -271,13 +278,6 @@ void GraphicsHandler::initVulkan(void)
   // Binds our created descriptors with resources
   std::cout << "[+] Binding descriptor sets" << std::endl;
   bindDescriptorSets();
-
-  /*
-    These are buffers that a specified queue family's commands are recorded in
-    This allocates memory from a parent command pool
-  */
-  std::cout << "[+] Allocating for command buffer" << std::endl;
-  createCommandBuffers();
 
   /*
     Used to synchronize operation
