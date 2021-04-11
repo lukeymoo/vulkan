@@ -5,6 +5,16 @@
 #include "Primitives.h"
 #include "Defines.h"
 
+struct MemoryInitParameters
+{
+    uint32_t vertexSize = 256;
+    uint32_t indexSize = 256;
+    VkPhysicalDevice *m_PhysicalDevice = nullptr;
+    VkDevice *m_Device = nullptr;
+    DEVICEINFO *selectedDevice = nullptr;
+    SwapChainSupportDetails *m_SurfaceDetails = nullptr;
+};
+
 class MemoryHandler
 {
 public:
@@ -20,25 +30,17 @@ public:
     MemoryHandler(const MemoryHandler &) = delete;
     MemoryHandler &operator=(const MemoryHandler &) = delete;
 
-
-    MemoryHandler(uint32_t vertexSize, uint32_t indexSize);
+    MemoryHandler(MemoryInitParameters params);
     ~MemoryHandler(void);
 
 private:
-    VkPhysicalDevice *m_PhysicalDevice;
-    VkDevice *m_Device;
-    DEVICEINFO *selectedDevice;
-    SwapChainSupportDetails *m_SurfaceDetails;
+    MemoryInitParameters memVar;
 
     std::vector<VkImage> m_SwapImages;
 
     std::vector<VkBuffer> m_UniformBuffers;
     std::vector<VkDeviceMemory> m_UniformMemory;
     std::vector<void *> m_UniformPtrs;
-
-    // In megabytes
-    uint32_t vertexBufferSize = 256;
-    uint32_t indexBufferSize = 256;
 
     VkBuffer m_VertexBuffer;
     VkDeviceMemory m_VertexMemory;
@@ -49,8 +51,11 @@ private:
     void *m_IndexPtr;
 
 private:
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-                      VkBuffer &buffer, VkDeviceMemory &bufferMemory);
+    void createBuffer(VkDeviceSize size,
+                      VkBufferUsageFlags usage,
+                      VkMemoryPropertyFlags properties,
+                      VkBuffer &buffer,
+                      VkDeviceMemory &bufferMemory);
     void createVertexBuffer(void);
     void createIndexBuffer(void);
 

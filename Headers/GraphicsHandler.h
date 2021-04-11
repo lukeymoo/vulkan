@@ -46,7 +46,6 @@ private:
         int selectedIndex = 0;
 
         std::unique_ptr<Camera> camera;
-        std::unique_ptr<MemoryHandler> memory;
 
         /*
                 Base objects/pipeline objects
@@ -65,6 +64,13 @@ private:
 
         VkDescriptorPool m_DescriptorPool = nullptr;
         std::vector<VkDescriptorSetLayout> m_DescriptorLayouts;
+        // Model + View matrix set
+        std::vector<VkDescriptorSetLayout> m_Set0Allocs;
+        // Projection matrix set
+        std::vector<VkDescriptorSetLayout> m_Set1Allocs;
+
+        std::vector<VkDescriptorSet> m_ModelViewSets;
+        std::vector<VkDescriptorSet> m_ProjectionSets;
 
         VkDebugUtilsMessengerEXT m_Debug = nullptr;
         SwapChainSupportDetails m_SurfaceDetails{};
@@ -72,17 +78,9 @@ private:
         std::vector<VkImageView> m_SwapViews;
         std::vector<VkFramebuffer> m_Framebuffers;
         std::vector<VkCommandBuffer> m_CommandBuffers;
-        std::vector<VkDescriptorSet> m_DescriptorSets;
 
         /* Buffers, Memory, Mapped ptrs */
-        VkBuffer m_VertexBuffer = nullptr;
-        VkDeviceMemory m_VertexMemory = nullptr;
-        VkBuffer m_IndexBuffer = nullptr;
-        VkDeviceMemory m_IndexMemory = nullptr;
-
-        std::vector<VkBuffer> m_UniformBuffers;
-        std::vector<VkDeviceMemory> m_UniformMemory;
-        std::vector<void*> m_UniformPtrs;
+        std::unique_ptr<MemoryHandler> memory;
         
         /* Configured after a device is selected */
         DEVICEINFO *selectedDevice = nullptr;
@@ -213,15 +211,20 @@ private:
         // Create graphic pipeline
         void createGraphicsPipeline(void);
 
+        // Create framebuffers
         void createFrameBuffers(void);
+
         void createCommandPool(void);
+
         void createCommandBuffers(void);
+
         void createSyncObjects(void);
         
-        
-        void createUniformBuffers(void);
         void createDescriptorPool(void);
+
         void createDescriptorSets(void);
+
+        void bindDescriptorSets(void);
         
         void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                          VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);

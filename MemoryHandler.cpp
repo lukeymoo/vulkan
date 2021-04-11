@@ -1,16 +1,8 @@
 #include "MemoryHandler.h"
 
-MemoryHandler::MemoryHandler()
+MemoryHandler::MemoryHandler(MemoryInitParameters params)
 {
-    createVertexBuffer();
-    createIndexBuffer();
-}
-
-MemoryHandler::MemoryHandler(uint32_t vertexSize, uint32_t indexSize)
-{
-    vertexBufferSize = vertexSize;
-    indexBufferSize = indexSize;
-
+    memVar = params;
     createVertexBuffer();
     createIndexBuffer();
 }
@@ -22,7 +14,7 @@ MemoryHandler::~MemoryHandler()
 void MemoryHandler::createVertexBuffer(void)
 {
     std::cout << "[+] Creating vertex buffer" << std::endl;
-    VkDeviceSize bufferSize = vertexBufferSize;
+    VkDeviceSize bufferSize = memVar.vertexSize;
 
     createBuffer(bufferSize,
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -36,7 +28,7 @@ void MemoryHandler::createIndexBuffer(void)
 {
     std::cout << "[+] Creating index buffer" << std::endl;
     // Index buffer size
-    VkDeviceSize bufferSize = indexBufferSize;
+    VkDeviceSize bufferSize = memVar.indexSize;
 
     // Create the gpu local buffer and copy our staging buffer to it
     createBuffer(bufferSize,
@@ -55,27 +47,27 @@ void MemoryHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     bufferInfo.flags = 0;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
-    bufferInfo.sharingMode = m_SurfaceDetails->sharingMode;
-    if (m_SurfaceDetails->sharingMode == VK_SHARING_MODE_EXCLUSIVE)
+    bufferInfo.sharingMode = memVar.m_SurfaceDetails->sharingMode;
+    if (memVar.m_SurfaceDetails->sharingMode == VK_SHARING_MODE_EXCLUSIVE)
     {
         bufferInfo.queueFamilyIndexCount = 1;
-        bufferInfo.pQueueFamilyIndices = &selectedDevice->graphicsFamilyIndex;
+        bufferInfo.pQueueFamilyIndices = &memVar.selectedDevice->graphicsFamilyIndex;
     }
-    else if (m_SurfaceDetails->sharingMode == VK_SHARING_MODE_CONCURRENT)
+    else if (memVar.m_SurfaceDetails->sharingMode == VK_SHARING_MODE_CONCURRENT)
     {
-        uint32_t indices[] = {selectedDevice->graphicsFamilyIndex, selectedDevice->presentIndexes[0]};
+        uint32_t indices[] = {memVar.selectedDevice->graphicsFamilyIndex, memVar.selectedDevice->presentIndexes[0]};
         bufferInfo.queueFamilyIndexCount = 2;
         bufferInfo.pQueueFamilyIndices = indices;
     }
 
-    if (vkCreateBuffer(*m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(*memVar.m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
         M_EXCEPT("Failed to create vertex buffer!");
     }
 
     // allocate memory for buffer
     VkMemoryRequirements memRequirements{};
-    vkGetBufferMemoryRequirements(*m_Device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(*memVar.m_Device, buffer, &memRequirements);
 
     // Describe memory allocation
     VkMemoryAllocateInfo allocInfo{};
@@ -84,12 +76,12 @@ void MemoryHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(*m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(*memVar.m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
         M_EXCEPT("Failed to allocate memory for vertex buffer!");
     }
 
-    if (vkBindBufferMemory(*m_Device, buffer, bufferMemory, 0) != VK_SUCCESS)
+    if (vkBindBufferMemory(*memVar.m_Device, buffer, bufferMemory, 0) != VK_SUCCESS)
     {
         M_EXCEPT("Failed to bind memory to vertex buffer");
     }
@@ -99,7 +91,7 @@ void MemoryHandler::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 uint32_t MemoryHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties deviceMemoryProperties{};
-    vkGetPhysicalDeviceMemoryProperties(*m_PhysicalDevice,
+    vkGetPhysicalDeviceMemoryProperties(*memVar.m_PhysicalDevice,
                                         &deviceMemoryProperties);
 
     for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
@@ -116,19 +108,22 @@ uint32_t MemoryHandler::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlag
 
 void MemoryHandler::createUniformBuffers(void)
 {
+    // Create uniform buffer
+    std::cout << "[+] Creating uniform buffers" << std::endl;
+    
     m_UniformBuffers.resize(m_SwapImages.size());
     m_UniformMemory.resize(m_SwapImages.size());
     m_UniformPtrs.resize(m_SwapImages.size());
 
     for (const auto &image : m_SwapImages)
     {
-        createBuffer(selectedDevice->devProperties.properties.limits.maxUniformBufferRange,
+        createBuffer(memVar.selectedDevice->devProperties.properties.limits.maxUniformBufferRange,
                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                      m_UniformBuffers[&image - &m_SwapImages[0]],
                      m_UniformMemory[&image - &m_SwapImages[0]]);
 
-        if (vkMapMemory(*m_Device,
+        if (vkMapMemory(*memVar.m_Device,
                         m_UniformMemory[&image - &m_SwapImages[0]],
                         0,
                         VK_WHOLE_SIZE,
