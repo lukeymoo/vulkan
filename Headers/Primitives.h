@@ -14,47 +14,54 @@
 
 struct Vertex
 {
-	glm::vec3 pos;
+	glm::vec4 pos;
 	glm::vec4 color;
 
-	static VkVertexInputBindingDescription getBindingDescription()
+	static std::vector<VkVertexInputBindingDescription> getBindingDescription()
 	{
 		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;
 		bindingDescription.stride = sizeof(Vertex);
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		return bindingDescription;
+		std::vector<VkVertexInputBindingDescription> bindingDescs = {bindingDescription};
+
+		return bindingDescs;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+	static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
 	{
-		// Temp container to be returned
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+		VkVertexInputAttributeDescription position{};
+		VkVertexInputAttributeDescription color{};
 
 		// Position
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+		position.binding = 0;
+		position.location = 0;
+		position.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		position.offset = offsetof(Vertex, pos);
 
 		// Color
-		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		color.binding = 0;
+		color.location = 1;
+		color.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		color.offset = offsetof(Vertex, color);
+
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {
+			position, color};
 
 		return attributeDescriptions;
 	}
 };
 
 // Binding = 0
-struct UniformModelBuffer {
+struct UniformModelBuffer
+{
 	alignas(16) glm::mat4 model;
 };
 
 // Binding = 1
-struct UniformVPBuffer {
+struct UniformVPBuffer
+{
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 };

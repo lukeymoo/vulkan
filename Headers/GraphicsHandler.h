@@ -5,6 +5,7 @@
 // Includes most libraries needed
 #include "Defines.h"
 
+#include "MemoryHandler.h"
 #include "ExceptionHandler.h"
 #include "Models.h"
 #include "Keyboard.h"
@@ -45,6 +46,7 @@ private:
         int selectedIndex = 0;
 
         std::unique_ptr<Camera> camera;
+        std::unique_ptr<MemoryHandler> memory;
 
         /*
                 Base objects/pipeline objects
@@ -60,8 +62,10 @@ private:
         VkPipeline m_Pipeline = nullptr;
         VkRenderPass m_RenderPass = nullptr;
         VkPipelineLayout m_PipelineLayout = nullptr;
+
         VkDescriptorPool m_DescriptorPool = nullptr;
-        VkDescriptorSetLayout m_DescriptorLayout = nullptr;
+        std::vector<VkDescriptorSetLayout> m_DescriptorLayouts;
+
         VkDebugUtilsMessengerEXT m_Debug = nullptr;
         SwapChainSupportDetails m_SurfaceDetails{};
         std::vector<VkImage> m_SwapImages;
@@ -75,14 +79,11 @@ private:
         VkDeviceMemory m_VertexMemory = nullptr;
         VkBuffer m_IndexBuffer = nullptr;
         VkDeviceMemory m_IndexMemory = nullptr;
-        std::vector<VkBuffer> m_UniformModelBuffers;
-        std::vector<VkDeviceMemory> m_UniformModelMemories;
-        std::vector<void *> m_UniformModelPtrs;
 
-        std::vector<VkBuffer> m_UniformVPBuffers;
-        std::vector<VkDeviceMemory> m_UniformVPMemories;
-        std::vector<void *> m_UniformVPPtrs;
-
+        std::vector<VkBuffer> m_UniformBuffers;
+        std::vector<VkDeviceMemory> m_UniformMemory;
+        std::vector<void*> m_UniformPtrs;
+        
         /* Configured after a device is selected */
         DEVICEINFO *selectedDevice = nullptr;
         std::vector<DEVICEINFO> deviceInfoList;
@@ -103,6 +104,43 @@ private:
         uint gridVertexDataSize = 0;
         std::vector<Vertex> grid;
 
+        struct PipelineStageInfo
+        {
+                VkPipelineShaderStageCreateInfo vertexStageInfo{};
+                VkPipelineShaderStageCreateInfo fragmentStageInfo{};
+
+                VkShaderModule vertexModule = nullptr;
+                VkShaderModule fragmentModule = nullptr;
+
+                std::vector<VkAttachmentDescription> renderAttachments;
+                std::vector<VkPipelineShaderStageCreateInfo> stageInfos;
+
+                VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+                VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
+                VkPipelineDynamicStateCreateInfo dynamicInfo{};
+                VkViewport viewport{};
+                VkRect2D scissor{};
+                VkPipelineViewportStateCreateInfo viewportStateInfo{};
+                VkPipelineRasterizationStateCreateInfo rasterInfo{};
+                VkPipelineMultisampleStateCreateInfo samplingInfo{};
+                VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+                VkPipelineColorBlendAttachmentState colorBlendAttachmentInfo{};
+                VkPipelineColorBlendStateCreateInfo colorBlendingInfo{};
+                VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+                VkAttachmentDescription colorAttachment{};
+                VkAttachmentReference colorAttachmentRef{};
+                VkSubpassDescription subpass{};
+                VkSubpassDependency dependency{};
+                VkRenderPassCreateInfo renderInfo{};
+
+                VkGraphicsPipelineCreateInfo pipelineInfo{};
+
+                std::vector<VkDynamicState> dStates = {VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT};
+
+                std::vector<VkVertexInputBindingDescription> bindingDescription = Vertex::getBindingDescription();
+                std::vector<VkVertexInputAttributeDescription> attributeDescription = Vertex::getAttributeDescriptions();
+        } m_PipelineStageInfo;
+
 private:
         void checkDeviceExtensionSupport(void);
 
@@ -111,7 +149,7 @@ private:
 
         // Ensures all requested extensions supported
         void checkInstanceExtensionSupport(void);
-        
+
         // Calls all necessary functions to initialize
         void initVulkan(void);
 
@@ -166,20 +204,25 @@ private:
         // Create layout for resource bindings
         void createDescriptorSetLayout(void);
 
-        // Create graphics pipeline
+        // Creates layout for pipeline
+        void createPipelineLayout(void);
+
+        // Create render pass
+        void createRenderPass(void);
+
+        // Create graphic pipeline
         void createGraphicsPipeline(void);
+
         void createFrameBuffers(void);
         void createCommandPool(void);
         void createCommandBuffers(void);
         void createSyncObjects(void);
-        void createVertexBuffer(void);
-        void createIndexBuffer(void);
+        
+        
         void createUniformBuffers(void);
         void createDescriptorPool(void);
         void createDescriptorSets(void);
-        void createRenderPass(void);
-        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-                          VkBuffer &buffer, VkDeviceMemory &bufferMemory);
+        
         void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                          VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
         VkImageView createImageView(VkImage image, VkFormat);
@@ -194,7 +237,7 @@ private:
         VkSurfaceFormatKHR chooseSwapChainFormat(void);
         VkPresentModeKHR chooseSwapChainPresentMode(void);
         VkShaderModule createShaderModule(const std::vector<char> &code);
-        uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+        
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dstOffset, VkDeviceSize size);
         // Quick command buffer record start/end
         VkCommandBuffer beginSingleCommands(void);

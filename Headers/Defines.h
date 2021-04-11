@@ -96,6 +96,8 @@ struct SwapChainSupportDetails
 {
     VkSurfaceFormatKHR selectedFormat{};
     VkPresentModeKHR selectedPresentMode{};
+    VkSharingMode sharingMode;
+    VkSampleCountFlagBits selectedSampleCount = VK_SAMPLE_COUNT_1_BIT;
 
     VkSurfaceCapabilitiesKHR capabilities{};
 

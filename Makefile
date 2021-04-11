@@ -231,6 +231,33 @@ Keyboard.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/Keyboard.cpp.s
 .PHONY : Keyboard.cpp.s
 
+MemoryHandler.o: MemoryHandler.cpp.o
+
+.PHONY : MemoryHandler.o
+
+# target to build an object file
+MemoryHandler.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/MemoryHandler.cpp.o
+.PHONY : MemoryHandler.cpp.o
+
+MemoryHandler.i: MemoryHandler.cpp.i
+
+.PHONY : MemoryHandler.i
+
+# target to preprocess a source file
+MemoryHandler.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/MemoryHandler.cpp.i
+.PHONY : MemoryHandler.cpp.i
+
+MemoryHandler.s: MemoryHandler.cpp.s
+
+.PHONY : MemoryHandler.s
+
+# target to generate assembly for a file
+MemoryHandler.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/MemoryHandler.cpp.s
+.PHONY : MemoryHandler.cpp.s
+
 Models.o: Models.cpp.o
 
 .PHONY : Models.o
@@ -387,6 +414,9 @@ help:
 	@echo "... Keyboard.o"
 	@echo "... Keyboard.i"
 	@echo "... Keyboard.s"
+	@echo "... MemoryHandler.o"
+	@echo "... MemoryHandler.i"
+	@echo "... MemoryHandler.s"
 	@echo "... Models.o"
 	@echo "... Models.i"
 	@echo "... Models.s"
