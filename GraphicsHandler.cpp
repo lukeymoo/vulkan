@@ -237,13 +237,13 @@ void GraphicsHandler::initVulkan(void)
   /*
     Memory allocator handles vertex, index and uniform buffers
   */
-  MemoryInitParameters params;
-  params.vertexSize = 256;
-  params.indexSize = 256;
-  params.m_PhysicalDevice = &m_PhysicalDevice;
-  params.m_Device = &m_Device;
-  params.selectedDevice = selectedDevice;
-  params.m_SurfaceDetails = &m_SurfaceDetails;
+  MemoryInitParameters params = {
+      params.vertexSize = 256,
+      params.indexSize = 256,
+      params.m_PhysicalDevice = m_PhysicalDevice,
+      params.m_Device = m_Device,
+      params.selectedDevice = selectedDevice,
+      params.m_SurfaceDetails = m_SurfaceDetails};
 
   memory = std::make_unique<MemoryHandler>(params);
 
@@ -255,12 +255,12 @@ void GraphicsHandler::initVulkan(void)
   /*
     Loads all defined models' data into vertex, index and MVP buffers
   */
-  std::cout << "[+] Loading models..." << std::endl;
-  loadEntities();
+  // std::cout << "[+] Loading models..." << std::endl;
+  // loadEntities();
 
   // Temp
   // Add a single human element to type container
-  Human.humans.push_back(HumanClass());
+  //Human.humans.push_back(HumanClass());
 
   /*
    Describes the constraints on allocation of descriptor sets
@@ -1372,8 +1372,14 @@ void GraphicsHandler::createDescriptorSets(void)
 
 void GraphicsHandler::bindDescriptorSets(void)
 {
-  // Populate the descriptor sets
-  // This is where the uniform buffers are binded to the descriptor sets
+  for (const auto &image : m_SwapImages)
+  {
+  }
+  return;
+}
+
+void GraphicsHandler::bindescriptorsets(void)
+{
   for (size_t i = 0; i < m_SwapImages.size(); i++)
   {
     // Each descriptor info needs it's own descriptor set
@@ -1741,7 +1747,7 @@ void GraphicsHandler::recreateSwapChain(void)
 
   // Get new details
   std::cout << "[/] Creating new swap chain" << std::endl;
-  m_SurfaceDetails = querySwapChainSupport();
+  querySwapChainSupport();
 
   if (m_SurfaceDetails.formats.empty() ||
       m_SurfaceDetails.presentModes.empty())
@@ -1775,7 +1781,8 @@ void GraphicsHandler::recreateSwapChain(void)
   createCommandBuffers();
 
   // Recreate the camera
-  camera = std::make_unique<Camera>(selectedSwapExtent.width, selectedSwapExtent.height);
+  camera = std::make_unique<Camera>(m_SurfaceDetails.capabilities.currentExtent.width,
+                                    m_SurfaceDetails.capabilities.currentExtent.height);
 
   std::cout << "\t[+] Done!" << std::endl;
   return;
@@ -1849,62 +1856,6 @@ void GraphicsHandler::recreateSwapChain(void)
 //   return;
 // }
 
-void GraphicsHandler::createImage(uint32_t width,
-                                  uint32_t height,
-                                  VkFormat format,
-                                  VkImageTiling tiling,
-                                  VkImageUsageFlags usage,
-                                  VkMemoryPropertyFlags properties,
-                                  VkImage &image,
-                                  VkDeviceMemory &imageMemory)
-{
-  VkResult result;
-
-  VkImageCreateInfo imageInfo{};
-  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.pNext = nullptr;
-  imageInfo.flags = 0;
-  imageInfo.imageType = VK_IMAGE_TYPE_2D;
-  imageInfo.format = format;
-  imageInfo.extent.width = width;
-  imageInfo.extent.height = height;
-  imageInfo.extent.depth = 1;
-  imageInfo.mipLevels = 1;
-  imageInfo.arrayLayers = 1;
-  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.tiling = tiling;
-  imageInfo.usage = usage;
-  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  imageInfo.queueFamilyIndexCount = 0;     // not used when exclusive
-  imageInfo.pQueueFamilyIndices = nullptr; // not used when exclusive
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-  result = vkCreateImage(m_Device, &imageInfo, nullptr, &image);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to create image");
-  }
-
-  VkMemoryRequirements memRequirements;
-  vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
-
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.pNext = nullptr;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex =
-      findMemoryType(memRequirements.memoryTypeBits, properties);
-
-  result = vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory);
-
-  result = vkBindImageMemory(m_Device, image, imageMemory, 0);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to bind image memory");
-  }
-  return;
-}
-
 void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dstOffset, VkDeviceSize size)
 {
   // Create command buffer and prepare for recording
@@ -1928,42 +1879,42 @@ void GraphicsHandler::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, int dst
 
 void GraphicsHandler::updateUniformModelBuffer(uint32_t imageIndex)
 {
-  UniformModelBuffer um;
+  // UniformModelBuffer um;
 
-  static auto startTime = std::chrono::high_resolution_clock::now();
+  // static auto startTime = std::chrono::high_resolution_clock::now();
 
-  auto currentTime = std::chrono::high_resolution_clock::now();
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+  // auto currentTime = std::chrono::high_resolution_clock::now();
+  // float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-  Human.humans.at(0).worldMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  um.model = Human.humans.at(0).worldMatrix;
-  // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  // ubo.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 10.0f);
+  // Human.humans.at(0).worldMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  // um.model = Human.humans.at(0).worldMatrix;
+  // // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  // // ubo.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 10.0f);
 
-  // Flip due to legacy opengl matrix inversion
-  // should look into seeing whether this operation is faster on gpu side
-  // or should it remain here as a cpu job
-  /*
-    Flip projection matrix as such
-    proj[1][1] *= -1;
-  */
+  // // Flip due to legacy opengl matrix inversion
+  // // should look into seeing whether this operation is faster on gpu side
+  // // or should it remain here as a cpu job
+  // /*
+  //   Flip projection matrix as such
+  //   proj[1][1] *= -1;
+  // */
 
-  // Transfer data
-  memcpy(m_UniformModelPtrs[imageIndex], &um, sizeof(UniformModelBuffer));
+  // // Transfer data
+  // memcpy(m_UniformModelPtrs[imageIndex], &um, sizeof(UniformModelBuffer));
   return;
 }
 
 void GraphicsHandler::updateUniformVPBuffer(uint32_t imageIndex)
 {
-  UniformVPBuffer uvp;
-  // Point left hand down to visualize the axis
-  // Origin is at top left
-  uvp.view = glm::lookAt(camera->getPosition(), camera->getPosition() + camera->DEFAULT_FORWARD_VECTOR, glm::vec3(0.0f, -1.0f, 0.0f));
-  uvp.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 100.0f);
-  uvp.proj[1][1] *= -1;
+  // UniformVPBuffer uvp;
+  // // Point left hand down to visualize the axis
+  // // Origin is at top left
+  // uvp.view = glm::lookAt(camera->getPosition(), camera->getPosition() + camera->DEFAULT_FORWARD_VECTOR, glm::vec3(0.0f, -1.0f, 0.0f));
+  // uvp.proj = glm::perspective(glm::radians(45.0f), selectedSwapExtent.width / (float)selectedSwapExtent.height, 0.1f, 100.0f);
+  // uvp.proj[1][1] *= -1;
 
-  // Transfer
-  memcpy(m_UniformVPPtrs[imageIndex], &uvp, sizeof(UniformVPBuffer));
+  // // Transfer
+  // memcpy(m_UniformVPPtrs[imageIndex], &uvp, sizeof(UniformVPBuffer));
   return;
 }
 
@@ -2070,87 +2021,87 @@ VkImageView GraphicsHandler::createImageView(VkImage image, VkFormat format)
 
   Loads vertex data into the buffer
 */
-void GraphicsHandler::processModelData(ModelClass *modelObj)
-{
-  std::cout << "[+] Moving allocated model :: " << modelObj->typeName
-            << " :: into gpu memory" << std::endl;
+// void GraphicsHandler::processModelData(ModelClass *modelObj)
+// {
+//   std::cout << "[+] Moving allocated model :: " << modelObj->typeName
+//             << " :: into gpu memory" << std::endl;
 
-  VkResult result;
+//   VkResult result;
 
-  VkBuffer vertexStagingBuffer{};
-  VkDeviceMemory vertexStagingMemory{};
+//   VkBuffer vertexStagingBuffer{};
+//   VkDeviceMemory vertexStagingMemory{};
 
-  VkBuffer indexStagingBuffer{};
-  VkDeviceMemory indexStagingMemory{};
+//   VkBuffer indexStagingBuffer{};
+//   VkDeviceMemory indexStagingMemory{};
 
-  // Create the vertex staging buffer
-  createBuffer(modelObj->vertexDataSize,
-               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               vertexStagingBuffer,
-               vertexStagingMemory);
+//   // Create the vertex staging buffer
+//   createBuffer(modelObj->vertexDataSize,
+//                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+//                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//                vertexStagingBuffer,
+//                vertexStagingMemory);
 
-  // Map vertex staging
-  void *vertexDataPtr;
-  result = vkMapMemory(m_Device,
-                       vertexStagingMemory,
-                       0,
-                       modelObj->vertexDataSize,
-                       0,
-                       &vertexDataPtr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to map memory for processing of model data");
-  }
-  // fill vertex stage
-  memcpy(vertexDataPtr, modelObj->vertices.data(), modelObj->vertexDataSize);
+//   // Map vertex staging
+//   void *vertexDataPtr;
+//   result = vkMapMemory(m_Device,
+//                        vertexStagingMemory,
+//                        0,
+//                        modelObj->vertexDataSize,
+//                        0,
+//                        &vertexDataPtr);
+//   if (result != VK_SUCCESS)
+//   {
+//     G_EXCEPT("Failed to map memory for processing of model data");
+//   }
+//   // fill vertex stage
+//   memcpy(vertexDataPtr, modelObj->vertices.data(), modelObj->vertexDataSize);
 
-  // Unmap vertex staging
-  vkUnmapMemory(m_Device, vertexStagingMemory);
+//   // Unmap vertex staging
+//   vkUnmapMemory(m_Device, vertexStagingMemory);
 
-  // Copy vertex stage -> vertex buffer
-  copyBuffer(vertexStagingBuffer, m_VertexBuffer, modelObj->vertexStartOffset, modelObj->vertexDataSize);
-  std::cout << "Copying vertex data into buffer at dst offset -> " << modelObj->vertexStartOffset << std::endl;
+//   // Copy vertex stage -> vertex buffer
+//   copyBuffer(vertexStagingBuffer, m_VertexBuffer, modelObj->vertexStartOffset, modelObj->vertexDataSize);
+//   std::cout << "Copying vertex data into buffer at dst offset -> " << modelObj->vertexStartOffset << std::endl;
 
-  // create index stage
-  createBuffer(modelObj->indexDataSize,
-               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               indexStagingBuffer,
-               indexStagingMemory);
+//   // create index stage
+//   createBuffer(modelObj->indexDataSize,
+//                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+//                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+//                indexStagingBuffer,
+//                indexStagingMemory);
 
-  // Map index stage
-  void *indexDataPtr;
-  result = vkMapMemory(m_Device,
-                       indexStagingMemory,
-                       0,
-                       modelObj->indexDataSize,
-                       0,
-                       &indexDataPtr);
-  if (result != VK_SUCCESS)
-  {
-    G_EXCEPT("Failed to map memory for processing of model data");
-  }
+//   // Map index stage
+//   void *indexDataPtr;
+//   result = vkMapMemory(m_Device,
+//                        indexStagingMemory,
+//                        0,
+//                        modelObj->indexDataSize,
+//                        0,
+//                        &indexDataPtr);
+//   if (result != VK_SUCCESS)
+//   {
+//     G_EXCEPT("Failed to map memory for processing of model data");
+//   }
 
-  // fill index stage
-  memcpy(indexDataPtr, modelObj->indices.data(), modelObj->indexDataSize);
+//   // fill index stage
+//   memcpy(indexDataPtr, modelObj->indices.data(), modelObj->indexDataSize);
 
-  // unmap index stage
-  vkUnmapMemory(m_Device, indexStagingMemory);
+//   // unmap index stage
+//   vkUnmapMemory(m_Device, indexStagingMemory);
 
-  // Copy index stage -> index buffer
-  copyBuffer(indexStagingBuffer, m_IndexBuffer, modelObj->indexStartOffset, modelObj->indexDataSize);
-  std::cout << "Copying index data into buffer at dst offset -> " << modelObj->indexStartOffset << std::endl;
+//   // Copy index stage -> index buffer
+//   copyBuffer(indexStagingBuffer, m_IndexBuffer, modelObj->indexStartOffset, modelObj->indexDataSize);
+//   std::cout << "Copying index data into buffer at dst offset -> " << modelObj->indexStartOffset << std::endl;
 
-  // cleanup vertex stage
-  vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
-  vkFreeMemory(m_Device, vertexStagingMemory, nullptr);
+//   // cleanup vertex stage
+//   vkDestroyBuffer(m_Device, vertexStagingBuffer, nullptr);
+//   vkFreeMemory(m_Device, vertexStagingMemory, nullptr);
 
-  // cleanup index stage
-  vkDestroyBuffer(m_Device, indexStagingBuffer, nullptr);
-  vkFreeMemory(m_Device, indexStagingMemory, nullptr);
-  return;
-}
+//   // cleanup index stage
+//   vkDestroyBuffer(m_Device, indexStagingBuffer, nullptr);
+//   vkFreeMemory(m_Device, indexStagingMemory, nullptr);
+//   return;
+// }
 
 /*
   The index buffer and vertex buffer have been created
@@ -2163,47 +2114,47 @@ void GraphicsHandler::processModelData(ModelClass *modelObj)
   Vertex and Index data are device local
   MVP matrice data buffer is HOST_VISIBLE and can simply be written to each frame
 */
-void GraphicsHandler::loadEntities(void)
-{
-  std::pair<int, int> prevBufferOffsets = {0, 0};
-  std::pair<int, int> nextBufferOffsets = {0, 0};
+// void GraphicsHandler::loadEntities(void)
+// {
+//   std::pair<int, int> prevBufferOffsets = {0, 0};
+//   std::pair<int, int> nextBufferOffsets = {0, 0};
 
-  std::cout << "\tModel -> " << Human.typeName << std::endl;
-  nextBufferOffsets = Human.loadModelData(prevBufferOffsets);
-  std::cout << "Model Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
-  std::cout << "Model next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
+//   std::cout << "\tModel -> " << Human.typeName << std::endl;
+//   nextBufferOffsets = Human.loadModelData(prevBufferOffsets);
+//   std::cout << "Model Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+//   std::cout << "Model next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
 
-  if (nextBufferOffsets.first == -1 ||
-      nextBufferOffsets.second == -1)
-  {
-    G_EXCEPT("Model data would exceed allocated buffer limits!");
-  }
+//   if (nextBufferOffsets.first == -1 ||
+//       nextBufferOffsets.second == -1)
+//   {
+//     G_EXCEPT("Model data would exceed allocated buffer limits!");
+//   }
 
-  // Update offset
-  prevBufferOffsets = nextBufferOffsets;
+//   // Update offset
+//   prevBufferOffsets = nextBufferOffsets;
 
-  // Load grid vertices
-  nextBufferOffsets = loadGridVertices(prevBufferOffsets);
-  std::cout << "Grid Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
-  std::cout << "Grid next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
+//   // Load grid vertices
+//   nextBufferOffsets = loadGridVertices(prevBufferOffsets);
+//   std::cout << "Grid Previous -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+//   std::cout << "Grid next -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
 
-  if (nextBufferOffsets.first == -1 ||
-      nextBufferOffsets.second == -1)
-  {
-    G_EXCEPT("Grid vertices would exceed buffer limits!");
-  }
+//   if (nextBufferOffsets.first == -1 ||
+//       nextBufferOffsets.second == -1)
+//   {
+//     G_EXCEPT("Grid vertices would exceed buffer limits!");
+//   }
 
-  // update offset
-  prevBufferOffsets = nextBufferOffsets;
+//   // update offset
+//   prevBufferOffsets = nextBufferOffsets;
 
-  std::cout << "After grid -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
-  std::cout << "After grid -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
+//   std::cout << "After grid -> " << prevBufferOffsets.first << ", " << prevBufferOffsets.second << std::endl;
+//   std::cout << "After grid -> " << nextBufferOffsets.first << ", " << nextBufferOffsets.second << std::endl;
 
-  // After all model data is loaded we will pass those to an actual buffer
-  processModelData(&Human);
-  processGridData();
-  return;
-}
+//   // After all model data is loaded we will pass those to an actual buffer
+//   processModelData(&Human);
+//   processGridData();
+//   return;
+// }
 
 void GraphicsHandler::createGridVertices(void)
 {
@@ -2400,99 +2351,102 @@ GraphicsHandler::~GraphicsHandler()
 
   cleanupSwapChain();
 
-  // Bindings/layout
-  if (m_DescriptorLayout != VK_NULL_HANDLE)
+  // Cleanup descriptor layouts
+  if (!m_DescriptorLayouts.empty())
   {
-    vkDestroyDescriptorSetLayout(m_Device, m_DescriptorLayout, nullptr);
-  }
-
-  /* Vertex buffer/memory */
-  if (m_VertexBuffer != VK_NULL_HANDLE)
-  {
-    vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
-  }
-  if (m_VertexMemory != VK_NULL_HANDLE)
-  {
-    vkFreeMemory(m_Device, m_VertexMemory, nullptr);
-  }
-
-  /* Index buffer/memory */
-  if (m_IndexBuffer != VK_NULL_HANDLE)
-  {
-    vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
-  }
-  if (m_VertexMemory != VK_NULL_HANDLE)
-  {
-    vkFreeMemory(m_Device, m_IndexMemory, nullptr);
-  }
-
-  /* Uniform buffers */
-
-  // UNMAP all MODEL MEMORIES
-  if (!m_UniformModelMemories.empty())
-  {
-    for (auto &memory : m_UniformModelMemories)
+    for (auto &layout : m_DescriptorLayouts)
     {
-      vkUnmapMemory(m_Device, memory);
+      vkDestroyDescriptorSetLayout(m_Device, layout, nullptr);
     }
   }
 
-  // UNMAP all V/P MEMORIES
-  if (!m_UniformVPMemories.empty())
-  {
-    for (auto &memory : m_UniformVPMemories)
-    {
-      vkUnmapMemory(m_Device, memory);
-    }
-  }
+  // /* Vertex buffer/memory */
+  // if (m_VertexBuffer != VK_NULL_HANDLE)
+  // {
+  //   vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
+  // }
+  // if (m_VertexMemory != VK_NULL_HANDLE)
+  // {
+  //   vkFreeMemory(m_Device, m_VertexMemory, nullptr);
+  // }
 
-  // Destroy all MODEL BUFFERS
-  if (!m_UniformModelBuffers.empty())
-  {
-    for (auto &buffer : m_UniformModelBuffers)
-    {
-      if (buffer != VK_NULL_HANDLE)
-      {
-        vkDestroyBuffer(m_Device, buffer, nullptr);
-      }
-    }
-  }
+  // /* Index buffer/memory */
+  // if (m_IndexBuffer != VK_NULL_HANDLE)
+  // {
+  //   vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
+  // }
+  // if (m_VertexMemory != VK_NULL_HANDLE)
+  // {
+  //   vkFreeMemory(m_Device, m_IndexMemory, nullptr);
+  // }
 
-  // Free all MODEL MEMORIES
-  if (!m_UniformModelMemories.empty())
-  {
-    for (auto &memory : m_UniformModelMemories)
-    {
-      if (memory != VK_NULL_HANDLE)
-      {
-        vkFreeMemory(m_Device, memory, nullptr);
-      }
-    }
-  }
+  // /* Uniform buffers */
 
-  // Destroy all V/P BUFFERS
-  if (!m_UniformVPBuffers.empty())
-  {
-    for (auto &buffer : m_UniformVPBuffers)
-    {
-      if (buffer != VK_NULL_HANDLE)
-      {
-        vkDestroyBuffer(m_Device, buffer, nullptr);
-      }
-    }
-  }
+  // // UNMAP all MODEL MEMORIES
+  // if (!m_UniformModelMemories.empty())
+  // {
+  //   for (auto &memory : m_UniformModelMemories)
+  //   {
+  //     vkUnmapMemory(m_Device, memory);
+  //   }
+  // }
 
-  // Free all V/P MEMORIES
-  if (!m_UniformVPMemories.empty())
-  {
-    for (auto &memory : m_UniformVPMemories)
-    {
-      if (memory != VK_NULL_HANDLE)
-      {
-        vkFreeMemory(m_Device, memory, nullptr);
-      }
-    }
-  }
+  // // UNMAP all V/P MEMORIES
+  // if (!m_UniformVPMemories.empty())
+  // {
+  //   for (auto &memory : m_UniformVPMemories)
+  //   {
+  //     vkUnmapMemory(m_Device, memory);
+  //   }
+  // }
+
+  // // Destroy all MODEL BUFFERS
+  // if (!m_UniformModelBuffers.empty())
+  // {
+  //   for (auto &buffer : m_UniformModelBuffers)
+  //   {
+  //     if (buffer != VK_NULL_HANDLE)
+  //     {
+  //       vkDestroyBuffer(m_Device, buffer, nullptr);
+  //     }
+  //   }
+  // }
+
+  // // Free all MODEL MEMORIES
+  // if (!m_UniformModelMemories.empty())
+  // {
+  //   for (auto &memory : m_UniformModelMemories)
+  //   {
+  //     if (memory != VK_NULL_HANDLE)
+  //     {
+  //       vkFreeMemory(m_Device, memory, nullptr);
+  //     }
+  //   }
+  // }
+
+  // // Destroy all V/P BUFFERS
+  // if (!m_UniformVPBuffers.empty())
+  // {
+  //   for (auto &buffer : m_UniformVPBuffers)
+  //   {
+  //     if (buffer != VK_NULL_HANDLE)
+  //     {
+  //       vkDestroyBuffer(m_Device, buffer, nullptr);
+  //     }
+  //   }
+  // }
+
+  // // Free all V/P MEMORIES
+  // if (!m_UniformVPMemories.empty())
+  // {
+  //   for (auto &memory : m_UniformVPMemories)
+  //   {
+  //     if (memory != VK_NULL_HANDLE)
+  //     {
+  //       vkFreeMemory(m_Device, memory, nullptr);
+  //     }
+  //   }
+  // }
 
   // Destroy m_imageAvailableSemaphore objects
   for (const auto &semaphore : m_imageAvailableSemaphore)
@@ -2590,6 +2544,14 @@ void GraphicsHandler::cleanupSwapChain(void)
       {
         vkDestroyImageView(m_Device, view, nullptr);
       }
+    }
+  }
+  // Ensure to destroy images
+  if (!m_SwapImages.empty())
+  {
+    for (auto &image : m_SwapImages)
+    {
+      vkDestroyImage(m_Device, image, nullptr);
     }
   }
   if (m_Swap != VK_NULL_HANDLE && m_Swap != nullptr)

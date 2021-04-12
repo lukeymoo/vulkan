@@ -51,8 +51,9 @@ private:
                 Base objects/pipeline objects
         */
         VkPhysicalDevice m_PhysicalDevice = nullptr;
-        VkInstance m_Instance = nullptr;
         VkDevice m_Device = nullptr;
+
+        VkInstance m_Instance = nullptr;
         VkQueue m_GraphicsQueue = nullptr;
         VkQueue m_PresentQueue = nullptr;
         VkSurfaceKHR m_Surface = nullptr;
@@ -214,8 +215,10 @@ private:
         // Create framebuffers
         void createFrameBuffers(void);
 
+        // Create command pool
         void createCommandPool(void);
 
+        // Create command buffers
         void createCommandBuffers(void);
 
         void createSyncObjects(void);
@@ -223,11 +226,12 @@ private:
         void createDescriptorPool(void);
 
         void createDescriptorSets(void);
+
         void bindDescriptorSets(void);
         
 
 
-        
+
         void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                          VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
         VkImageView createImageView(VkImage image, VkFormat);

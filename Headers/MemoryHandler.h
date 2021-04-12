@@ -9,11 +9,21 @@ struct MemoryInitParameters
 {
     uint32_t vertexSize = 256;
     uint32_t indexSize = 256;
-    VkPhysicalDevice *m_PhysicalDevice = nullptr;
-    VkDevice *m_Device = nullptr;
-    DEVICEINFO *selectedDevice = nullptr;
-    SwapChainSupportDetails *m_SurfaceDetails = nullptr;
-};
+    VkPhysicalDevice &m_PhysicalDevice;
+    VkDevice &m_Device;
+    DEVICEINFO *selectedDevice;
+    SwapChainSupportDetails &m_SurfaceDetails;
+
+    MemoryInitParameters &operator=(MemoryInitParameters &n)
+    {
+        vertexSize = n.vertexSize;
+        indexSize = n.indexSize;
+        m_PhysicalDevice = n.m_PhysicalDevice;
+        m_Device = n.m_Device;
+        selectedDevice = n.selectedDevice;
+        m_SurfaceDetails = n.m_SurfaceDetails;
+    }
+} memVar;
 
 class MemoryHandler
 {
@@ -30,25 +40,30 @@ public:
     MemoryHandler(const MemoryHandler &) = delete;
     MemoryHandler &operator=(const MemoryHandler &) = delete;
 
-    MemoryHandler(MemoryInitParameters params);
+    MemoryHandler(MemoryInitParameters &params);
     ~MemoryHandler(void);
 
-private:
-    MemoryInitParameters memVar;
+    VkBuffer *createUniformBuffer(void);
+    VkDeviceMemory *getBufferMemory(VkBuffer *buf);
+    void *getBufferPtr(VkBuffer *buf);
 
-    std::vector<VkImage> m_SwapImages;
+    void appendVertexData();
+
+    void cleanup(void);
+
+private:
 
     std::vector<VkBuffer> m_UniformBuffers;
     std::vector<VkDeviceMemory> m_UniformMemory;
     std::vector<void *> m_UniformPtrs;
 
-    VkBuffer m_VertexBuffer;
-    VkDeviceMemory m_VertexMemory;
-    void *m_VertexPtr;
+    VkBuffer m_VertexBuffer = nullptr;
+    VkDeviceMemory m_VertexMemory = nullptr;
+    void *m_VertexPtr = nullptr;
 
-    VkBuffer m_IndexBuffer;
-    VkDeviceMemory m_IndexMemory;
-    void *m_IndexPtr;
+    VkBuffer m_IndexBuffer = nullptr;
+    VkDeviceMemory m_IndexMemory = nullptr;
+    void *m_IndexPtr = nullptr;
 
 private:
     void createBuffer(VkDeviceSize size,
@@ -59,7 +74,8 @@ private:
     void createVertexBuffer(void);
     void createIndexBuffer(void);
 
-    void createUniformBuffers(void);
+    //std::vector<VkImage> m_SwapImages;
+    //void createUniformBuffers(void);
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };
